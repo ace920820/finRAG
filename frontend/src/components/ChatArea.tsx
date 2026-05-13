@@ -156,7 +156,7 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, activeAssi
                           }
                         }}
                       >
-                        {msg.content.replace(/\[(\d+)\]/g, '<span class="cite" data-id="$1">$1</span>')}
+                        {renderCitationMarkup(msg)}
                       </ReactMarkdown>
 
                       {msg.stage === 'generate' && (
@@ -220,6 +220,16 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, activeAssi
       </div>
     </section>
   );
+}
+
+
+function renderCitationMarkup(message: Message): string {
+  const citations = message.retrievalSnapshot?.citations;
+  if (!citations) return message.content;
+  return message.content.replace(/\[(\d+)\]/g, (match, id) => {
+    if (!Object.prototype.hasOwnProperty.call(citations, id)) return match;
+    return `<span class="cite" data-id="${id}">${id}</span>`;
+  });
 }
 
 function StageItem({ title, active, done, duration, children }: { title: string, active: boolean, done: boolean, duration: string, children?: React.ReactNode }) {

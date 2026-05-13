@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from app.core.config import get_settings
-from app.core.ingestion.fixture_loader import load_chunks
+from app.core.ingestion.fixture_loader import load_active_chunks
 from app.core.providers.embeddings import build_embedding_provider
 from app.core.retrieval.bm25_store import BM25Store
 from app.core.retrieval.vector_store import VectorStore
@@ -23,7 +23,7 @@ class RetrievalIndexStore:
         index_dir.mkdir(parents=True, exist_ok=True)
         bm25_path = index_dir / "bm25_index.json"
         vector_path = index_dir / "vector_index.json"
-        chunks = load_chunks()
+        chunks = load_active_chunks()
         bm25_store = cls._load_bm25(index_dir) if bm25_path.exists() and not force_rebuild else None
         if bm25_store is None:
             bm25_store = BM25Store.from_chunks(chunks)

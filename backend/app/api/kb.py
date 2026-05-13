@@ -72,7 +72,8 @@ def list_kb_documents(
     page_size: int = Query(default=20, ge=1, le=200),
 ) -> KBDocumentListResponse:
     counts = chunk_counts_by_doc_id()
-    items = [_document_item(document, counts.get(document.doc_id, 0)) for document in load_documents()]
+    first_chunks = _first_chunk_by_doc_id(load_chunks())
+    items = [_document_item(document, counts.get(document.doc_id, 0), first_chunks.get(document.doc_id)) for document in load_documents()]
     filtered = _filter_documents(items, q=q, company=company, doc_type=doc_type, status=status)
     start = (page - 1) * page_size
     end = start + page_size
@@ -123,7 +124,8 @@ def upload_files(
     files: list[UploadFile] = File(...),
     collection_name: str = Form("default"),
 ) -> KBUploadResponse:
-    target_dir = get_settings().data_dir / "raw" / "manual" / _safe_name(collection_name)
+    settings = get_settings()
+    target_dir = settings.data_dir / "raw" / "manual" / _safe_name(collection_name)
     target_dir.mkdir(parents=True, exist_ok=True)
     saved_paths: list[str] = []
     for upload in files:
@@ -132,9 +134,11 @@ def upload_files(
         if suffix not in ALLOWED_UPLOAD_SUFFIXES:
             raise HTTPException(status_code=400, detail=f"Unsupported file type: {filename}")
         target_path = target_dir / filename
+        if target_path.exists():
+            raise HTTPException(status_code=409, detail=f"File already exists: {filename}")
         with target_path.open("wb") as output:
             copyfileobj(upload.file, output)
-        saved_paths.append(str(target_path))
+        saved_paths.append(target_path.relative_to(settings.data_dir).as_posix())
     return KBUploadResponse(uploaded=len(saved_paths), saved_paths=saved_paths)
 
 
@@ -213,6 +217,8 @@ def reimport_document(doc_id: str) -> KBImportJobResponse:
     job.reindex_status = "not_requested"
     JOBS[job.job_id] = job
     _update_document_state(document.doc_id, status="active", error_message=None)
+    _rebuild_index()
+    job.reindex_status = "completed"
     return _job_response(job)
 
 
@@ -221,17 +227,16 @@ def disable_document(doc_id: str) -> dict[str, str]:
     if not any(item.doc_id == doc_id for item in load_documents()):
         raise HTTPException(status_code=404, detail="Document not found")
     _update_document_state(doc_id, status="disabled", error_message=None)
+    _rebuild_index()
     return {"doc_id": doc_id, "status": "disabled"}
 
 
-def _document_item(document, chunk_count: int) -> KBDocumentListItem:
+def _document_item(document, chunk_count: int, first_chunk=None) -> KBDocumentListItem:
     source_path = ""
     collection_name = "default"
-    for chunk in load_chunks():
-        if chunk.doc_id == document.doc_id:
-            source_path = str(chunk.metadata.get("source_path") or "")
-            collection_name = str(chunk.metadata.get("collection") or "default")
-            break
+    if first_chunk:
+        source_path = str(first_chunk.metadata.get("source_path") or "")
+        collection_name = str(first_chunk.metadata.get("collection") or "default")
     status, error_message = _load_document_state(document.doc_id)
     return KBDocumentListItem(
         doc_id=document.doc_id,
@@ -246,6 +251,13 @@ def _document_item(document, chunk_count: int) -> KBDocumentListItem:
         collection_name=collection_name,
         error_message=error_message,
     )
+
+
+def _first_chunk_by_doc_id(chunks) -> dict[str, object]:
+    first_chunks: dict[str, object] = {}
+    for chunk in chunks:
+        first_chunks.setdefault(chunk.doc_id, chunk)
+    return first_chunks
 
 
 def _filter_documents(

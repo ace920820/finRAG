@@ -311,7 +311,11 @@ export function KnowledgeBaseManager({ onBackToChat }: { onBackToChat: () => voi
                   <Filter className="w-4 h-4" />
                   <span>筛选器</span>
                 </div>
-                <button className="flex-1 md:flex-none px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleReindex()}
+                  className="flex-1 md:flex-none px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm flex items-center justify-center gap-2"
+                >
                   <RefreshCw className="w-4 h-4" />
                   重建索引
                 </button>

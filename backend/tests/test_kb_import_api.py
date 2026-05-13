@@ -32,6 +32,7 @@ def test_kb_upload_import_and_job_polling(client, tmp_path, monkeypatch):
     )
     assert upload_response.status_code == 200
     assert upload_response.json()["uploaded"] == 1
+    assert upload_response.json()["saved_paths"] == ["raw/manual/demo/demo.md"]
 
     import_response = client.post(
         "/api/kb/import",
@@ -48,6 +49,31 @@ def test_kb_upload_import_and_job_polling(client, tmp_path, monkeypatch):
 
     documents = json.loads((processed_dir / "documents.json").read_text(encoding="utf-8"))
     assert documents[0]["company"] == "DemoCo"
+
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+
+def test_kb_upload_rejects_duplicate_filename(client, tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    monkeypatch.setenv("FINRAG_DATA_DIR", str(data_dir))
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+    first_response = client.post(
+        "/api/kb/upload",
+        data={"collection_name": "demo"},
+        files=[("files", ("demo.md", b"first", "text/markdown"))],
+    )
+    duplicate_response = client.post(
+        "/api/kb/upload",
+        data={"collection_name": "demo"},
+        files=[("files", ("demo.md", b"second", "text/markdown"))],
+    )
+
+    assert first_response.status_code == 200
+    assert duplicate_response.status_code == 409
+    assert (data_dir / "raw" / "manual" / "demo" / "demo.md").read_text(encoding="utf-8") == "first"
 
     get_settings.cache_clear()
     _processed_dir.cache_clear()
@@ -256,6 +282,7 @@ def test_document_disable_and_reimport_persist_status(client, tmp_path, monkeypa
     (processed_dir / "chunks.json").write_text(json.dumps([chunk]), encoding="utf-8")
     monkeypatch.setenv("FINRAG_DATA_DIR", str(data_dir))
     monkeypatch.setenv("FINRAG_PROCESSED_DATA_DIR", str(processed_dir))
+    monkeypatch.setenv("FINRAG_INDEX_DIR", str(data_dir / "index"))
     get_settings.cache_clear()
     _processed_dir.cache_clear()
 
@@ -270,6 +297,71 @@ def test_document_disable_and_reimport_persist_status(client, tmp_path, monkeypa
     reimport_response = client.post("/api/kb/documents/doc-existing/reimport")
     assert reimport_response.status_code == 200
     assert client.get("/api/kb/documents/doc-existing").json()["status"] == "active"
+
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+
+def test_reindex_excludes_disabled_documents(client, tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    processed_dir = data_dir / "processed"
+    index_dir = data_dir / "index"
+    processed_dir.mkdir(parents=True)
+    documents = [
+        {
+            "doc_id": "doc-active",
+            "company": "ActiveCo",
+            "company_aliases": [],
+            "doc_type": "research_report",
+            "title": "Active Report",
+            "date": "2026-05-13",
+            "source": "active.md",
+            "content": "active revenue content",
+        },
+        {
+            "doc_id": "doc-disabled",
+            "company": "DisabledCo",
+            "company_aliases": [],
+            "doc_type": "research_report",
+            "title": "Disabled Report",
+            "date": "2026-05-13",
+            "source": "disabled.md",
+            "content": "disabled revenue content",
+        },
+    ]
+    chunks = [
+        {
+            "chunk_id": "chunk-active",
+            "doc_id": "doc-active",
+            "section": "Active",
+            "page_num": None,
+            "chunk_index": 0,
+            "content": "active revenue content",
+            "metadata": {},
+        },
+        {
+            "chunk_id": "chunk-disabled",
+            "doc_id": "doc-disabled",
+            "section": "Disabled",
+            "page_num": None,
+            "chunk_index": 0,
+            "content": "disabled revenue content",
+            "metadata": {},
+        },
+    ]
+    (processed_dir / "documents.json").write_text(json.dumps(documents), encoding="utf-8")
+    (processed_dir / "chunks.json").write_text(json.dumps(chunks), encoding="utf-8")
+    monkeypatch.setenv("FINRAG_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("FINRAG_PROCESSED_DATA_DIR", str(processed_dir))
+    monkeypatch.setenv("FINRAG_INDEX_DIR", str(index_dir))
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+    assert client.delete("/api/kb/documents/doc-disabled").status_code == 200
+    assert client.post("/api/kb/reindex").status_code == 200
+    index_payload = json.loads((index_dir / "bm25_index.json").read_text(encoding="utf-8"))
+
+    assert {chunk["doc_id"] for chunk in index_payload["chunks"]} == {"doc-active"}
 
     get_settings.cache_clear()
     _processed_dir.cache_clear()
