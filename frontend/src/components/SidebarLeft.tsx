@@ -1,11 +1,11 @@
 import { DocType } from '../types';
-import { mockLeftDocuments } from '../data/mock';
 
 interface SidebarLeftProps {
+  documents: Array<{ id: string; title: string; type: DocType }>;
   onSelectExample: (text: string) => void;
 }
 
-export function SidebarLeft({ onSelectExample }: SidebarLeftProps) {
+export function SidebarLeft({ documents, onSelectExample }: SidebarLeftProps) {
   return (
     <aside className="w-60 border-r border-slate-200 bg-white flex flex-col overflow-y-auto shrink-0">
       <div className="p-4 flex flex-col gap-6">
@@ -37,10 +37,10 @@ export function SidebarLeft({ onSelectExample }: SidebarLeftProps) {
         </section>
         <section>
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">
-            文档库 ({mockLeftDocuments.length} 篇)
+            文档库 ({documents.length} 篇)
           </h2>
           <div className="space-y-2">
-            {mockLeftDocuments.map(doc => (
+            {documents.map(doc => (
               <div key={doc.id} className="p-2 hover:bg-slate-50 rounded border-l-2 border-transparent hover:border-blue-500 cursor-default">
                 <p className="text-xs font-medium truncate">{doc.title}</p>
                 <p className="text-[10px] text-slate-500">{doc.type}</p>

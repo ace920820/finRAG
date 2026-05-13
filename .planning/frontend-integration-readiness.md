@@ -102,3 +102,33 @@ When Phase 3 backend query SSE exists, Phase 4 should:
 
 ---
 *Last updated: 2026-05-13 after importing frontend code*
+
+## Phase 4 Implementation Notes
+
+**Updated:** 2026-05-13 after Phase 4 integration wiring.
+
+Implemented wiring:
+
+- `frontend/vite.config.ts` proxies `/api` to `http://localhost:8000` in Vite dev mode.
+- `frontend/src/api/finrag.ts` owns backend payload types, document/retrieval/rerank mappers, `fetchDocuments()`, and fetch-based POST SSE parsing.
+- `frontend/src/App.tsx` now calls `GET /api/documents` for the left document library and `POST /api/query` for query execution.
+- `frontend/src/components/SidebarLeft.tsx` accepts document props while preserving existing markup and example questions.
+- `frontend/src/components/SidebarRight.tsx` and `frontend/src/components/ChatArea.tsx` remain visually unchanged and receive backend-driven state through existing props.
+
+Final event-to-state mapping:
+
+| SSE Event | Frontend State |
+| --- | --- |
+| `query_rewrite` | `Message.queryRewrite`, stage remains `query` |
+| `retrieval_complete` | `bm25Docs`, `vectorDocs`, assistant stage `retrieve` |
+| `rerank_complete` | `rerankDocs`, assistant stage `rerank` |
+| `answer_chunk` | append to assistant `content`, stage `generate` |
+| `done` | assistant stage `done`, `Message.tokens` |
+| `error` | assistant stage `done`, Chinese error content |
+| `ping` | no visual change |
+
+Fallback behavior:
+
+- Document library falls back to `mockLeftDocuments` if backend document loading fails.
+- Retrieval panels reset at query start and repopulate as backend events arrive.
+- Query fetch/SSE failures produce an assistant error message instead of crashing the UI.

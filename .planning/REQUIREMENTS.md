@@ -53,14 +53,14 @@
 
 ### Integration And Demo
 
-- [ ] **INTG-01**: Imported React frontend can call backend through `/api` without contract changes.
-- [ ] **INTG-02**: Three demo questions complete end-to-end with streamed stage updates and final cited answers.
-- [ ] **INTG-03**: Contract tests verify frontend-facing response shapes and SSE event payloads.
-- [ ] **INTG-04**: Demo mode can run with cached or mock provider responses if external APIs fail.
-- [ ] **INTG-05**: Error handling supports retryable provider failures and surfaces clear frontend messages.
-- [ ] **INTG-06**: Frontend adapters replace mock RAG flow with backend `/api/query` SSE while preserving existing UI state shapes.
-- [ ] **INTG-07**: Frontend document library maps `GET /api/documents` into the existing left sidebar display.
-- [ ] **INTG-08**: Frontend retrieval panels map backend `retrieval_complete` and `rerank_complete` payloads into existing right sidebar cards.
+- [x] **INTG-01**: Imported React frontend can call backend through `/api` without contract changes.
+- [x] **INTG-02**: Three demo questions complete end-to-end with streamed stage updates and final cited answers.
+- [x] **INTG-03**: Contract tests verify frontend-facing response shapes and SSE event payloads.
+- [x] **INTG-04**: Demo mode can run with cached or mock provider responses if external APIs fail.
+- [x] **INTG-05**: Error handling supports retryable provider failures and surfaces clear frontend messages.
+- [x] **INTG-06**: Frontend adapters replace mock RAG flow with backend `/api/query` SSE while preserving existing UI state shapes.
+- [x] **INTG-07**: Frontend document library maps `GET /api/documents` into the existing left sidebar display.
+- [x] **INTG-08**: Frontend retrieval panels map backend `retrieval_complete` and `rerank_complete` payloads into existing right sidebar cards.
 
 ## v2 Requirements
 
@@ -122,14 +122,14 @@
 | API-08 | Phase 3 | Complete |
 | API-09 | Phase 3 | Complete |
 | API-10 | Phase 5 | Pending |
-| INTG-01 | Phase 4 | Pending |
-| INTG-02 | Phase 4 | Pending |
-| INTG-03 | Phase 4 | Pending |
-| INTG-04 | Phase 4 | Pending |
-| INTG-05 | Phase 4 | Pending |
-| INTG-06 | Phase 4 | Pending |
-| INTG-07 | Phase 4 | Pending |
-| INTG-08 | Phase 4 | Pending |
+| INTG-01 | Phase 4 | Complete |
+| INTG-02 | Phase 4 | Complete |
+| INTG-03 | Phase 4 | Complete |
+| INTG-04 | Phase 4 | Complete |
+| INTG-05 | Phase 4 | Complete |
+| INTG-06 | Phase 4 | Complete |
+| INTG-07 | Phase 4 | Complete |
+| INTG-08 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 38 total
@@ -138,4 +138,4 @@
 
 ---
 *Requirements defined: 2026-05-13*  
-*Last updated: 2026-05-13 after initialization*
+*Last updated: 2026-05-13 after phase 4 completion*
