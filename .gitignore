@@ -1,0 +1,39 @@
+# Local secrets
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node / frontend outputs
+node_modules/
+dist/
+build/
+coverage/
+*.log
+
+# macOS / removable drive metadata
+.DS_Store
+._*
+**/._*
+.AppleDouble/
+.Spotlight-V100/
+.Trashes/
+.fseventsd/
+
+# Local/generated data
+backend/app/data/raw/
+backend/app/data/source_documents/
+backend/backend/
+data/
+
+# External/local helper project copy
+pdf2md/

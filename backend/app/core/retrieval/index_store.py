@@ -17,24 +17,37 @@ class RetrievalIndexStore:
     vector_store: VectorStore
 
     @classmethod
-    def load_or_build(cls) -> "RetrievalIndexStore":
+    def load_or_build(cls, force_rebuild: bool = False) -> "RetrievalIndexStore":
         settings = get_settings()
-        index_dir = settings.index_dir
+        index_dir = settings.resolved_index_dir
         index_dir.mkdir(parents=True, exist_ok=True)
         bm25_path = index_dir / "bm25_index.json"
         vector_path = index_dir / "vector_index.json"
         chunks = load_chunks()
-        embedding_provider = build_embedding_provider()
-        bm25_store = BM25Store.from_chunks(chunks)
-        if vector_path.exists():
+        bm25_store = cls._load_bm25(index_dir) if bm25_path.exists() and not force_rebuild else None
+        if bm25_store is None:
+            bm25_store = BM25Store.from_chunks(chunks)
+        if vector_path.exists() and not force_rebuild:
             vector_store = VectorStore.load(index_dir)
             if vector_store is None:
+                embedding_provider = build_embedding_provider()
                 vector_store = VectorStore.from_chunks(chunks, embedding_provider)
         else:
+            embedding_provider = build_embedding_provider()
             vector_store = VectorStore.from_chunks(chunks, embedding_provider)
-        if not bm25_path.exists():
+        if force_rebuild or not bm25_path.exists():
             cls._save_bm25(index_dir, bm25_store)
         return cls(bm25_store=bm25_store, vector_store=vector_store)
+
+    @staticmethod
+    def _load_bm25(index_dir: Path) -> Optional[BM25Store]:
+        import json
+
+        path = index_dir / "bm25_index.json"
+        if not path.exists():
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        return BM25Store.from_index_payload(payload.get("chunks", []), payload.get("tokenized", []))
 
     @staticmethod
     def _save_bm25(index_dir: Path, store: BM25Store) -> None:
@@ -48,6 +61,7 @@ class RetrievalIndexStore:
 
     def save(self) -> None:
         settings = get_settings()
-        settings.index_dir.mkdir(parents=True, exist_ok=True)
-        self.vector_store.save(settings.index_dir)
-        self._save_bm25(settings.index_dir, self.bm25_store)
+        index_dir = settings.resolved_index_dir
+        index_dir.mkdir(parents=True, exist_ok=True)
+        self.vector_store.save(index_dir)
+        self._save_bm25(index_dir, self.bm25_store)

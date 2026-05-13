@@ -70,7 +70,9 @@ class VectorStore:
         if query_norm == 0:
             query_norm = 1.0
         query_vector = query_vector / query_norm
-        scores = self.vectors @ query_vector
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            scores = self.vectors @ query_vector
+        scores = np.nan_to_num(scores, nan=0.0, posinf=0.0, neginf=0.0)
         ranked = sorted(enumerate(scores.tolist()), key=lambda item: item[1], reverse=True)[:top_k]
         results: List[VectorResult] = []
         for index, score in ranked:

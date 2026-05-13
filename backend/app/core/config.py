@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 20
     rerank_top_k: int = 5
     rrf_k: int = 60
+    provider_timeout_seconds: float = 15.0
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -40,9 +41,30 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @field_validator("model_api_key", "embedding_api_key", "rerank_api_key", "llm_api_key", mode="before")
+    @classmethod
+    def blank_secret_to_none(cls, value):
+        if value == "":
+            return None
+        return value
+
     @property
     def processed_dir(self) -> Path:
-        return self.processed_data_dir or self.data_dir / "processed"
+        path = self.processed_data_dir or self.data_dir / "processed"
+        return self._resolve_path(path)
+
+    @property
+    def resolved_index_dir(self) -> Path:
+        return self._resolve_path(self.index_dir)
+
+    @staticmethod
+    def _resolve_path(path: Path) -> Path:
+        if path.is_absolute():
+            return path
+        backend_root = Path(__file__).resolve().parents[2]
+        if path.parts and path.parts[0] == backend_root.name:
+            return backend_root.parent / path
+        return backend_root / path
 
 
 @lru_cache

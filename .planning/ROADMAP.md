@@ -1,108 +1,66 @@
-# Roadmap: FinRAG
+# Roadmap: FinRAG v1.1 Document Import Pipeline
 
 **Created:** 2026-05-13  
 **Granularity:** Coarse  
-**Primary emphasis:** Backend implementation, automated tests, and frontend-backend integration
+**Primary emphasis:** Real document ingestion, PDF extraction reuse, deterministic chunking, and index rebuild.
+
+## Prior Milestone
+
+v1.0 delivered the mock-data FinRAG MVP: FastAPI backend, hybrid retrieval/rerank, SSE query API, React integration, and preview rewrite. The user has passed smoke testing with mock data.
 
 ## Overview
 
 | Phase | Name | Goal | Requirements | UI Hint | Status |
 |-------|------|------|--------------|---------|--------|
-| 1 | Backend Foundation And Demo Data | Establish runnable FastAPI backend, schemas, document endpoint, and deterministic demo data pipeline. | BACK-01..04, DATA-01..05, API-01 | no | Pending |
-| 2 | Hybrid Retrieval And Rerank | Build BM25/vector retrieval, RRF fusion, rerank Top 5, and degradation path. | RETR-01..06, API-04, API-05 | no | Pending |
-| 3 | Agent Workflow And SSE Query API | Orchestrate rewrite, retrieval, rerank, intent, LLM streaming, citations, errors, and heartbeat events. | AGNT-01..06, API-02, API-03, API-06..09 | no | Complete |
-| 4 | Integration And Demo Hardening | Validate imported React frontend against contract and stabilize three demo scenarios with fallbacks. | INTG-01..08 | yes | Complete |
-| 5 | P1 Enhancements | Add optional rewrite preview and polish financial-specific quality improvements as time allows. | API-10, selected v2 quality items | partial | Complete |
+| 6 | PDF Extraction Adapter | Adapt the provided `pdf2md` project so FinRAG can extract text-layer PDFs into traceable Markdown/raw artifacts. | PDF-01..05 | no | Complete |
+| 7 | FinRAG Corpus Import And Index Build | Convert extracted Markdown/text into FinRAG documents/chunks, rebuild indexes, and document the ingestion workflow. | ING-01..08, PIPE-01..04 | no | Complete |
 
 ## Phase Details
 
-### Phase 1: Backend Foundation And Demo Data
+### Phase 6: PDF Extraction Adapter
 
-**Goal:** Create the backend skeleton and deterministic data foundation needed by all later phases.
+**Status:** Complete — implemented in `pdf2md` with `--profile finrag`, validated by `cd pdf2md && python3 -m pytest` on 2026-05-13.
 
-**Requirements:** BACK-01, BACK-02, BACK-03, BACK-04, DATA-01, DATA-02, DATA-03, DATA-04, DATA-05, API-01
+**Goal:** Reuse and adapt `pdf2md` for FinRAG source PDFs without Elite Daily-specific assumptions blocking generic financial documents.
 
-**Success Criteria:**
-1. `backend` FastAPI app starts locally and exposes health/document endpoints.
-2. Pydantic schemas cover all document, chunk, API, and SSE payload contracts.
-3. Seed/build scripts can create processed demo data for the three target questions.
-4. Unit tests pass without external API keys.
-5. Critical financial facts have a curated fallback path independent of PDF parsing quality.
-
-**Notes:** This phase should not build frontend UI. It may include OpenAPI/schema examples for the frontend team.
-
-### Phase 2: Hybrid Retrieval And Rerank
-
-**Goal:** Make evidence retrieval observable, testable, and suitable for frontend visualization.
-
-**Requirements:** RETR-01, RETR-02, RETR-03, RETR-04, RETR-05, RETR-06, API-04, API-05
+**Requirements:** PDF-01, PDF-02, PDF-03, PDF-04, PDF-05
 
 **Success Criteria:**
-1. BM25 and vector stores can be built from demo chunks and queried independently.
-2. Hybrid retrieval returns separate BM25, vector, and fused candidate arrays.
-3. RRF scoring is deterministic and covered by unit tests.
-4. Rerank returns Top 5 chunk payloads with ranks, scores, content, metadata, and citation IDs.
-5. Rerank provider failure returns a documented fallback Top 5 instead of breaking the query flow.
+1. `pdf2md` can process a FinRAG raw PDF directory or single PDF into Markdown/raw outputs.
+2. Outputs preserve source path/name, title, extraction status, page count, hashes, and failure records.
+3. Re-runs skip unchanged files unless forced.
+4. Failed PDFs are recorded without aborting the batch.
+5. The output location can target a FinRAG-owned data directory.
 
-### Phase 3: Agent Workflow And SSE Query API
+**Notes:** Follow `pdf2md/AGENTS.md` for files under `pdf2md/`. Do not introduce OCR in this phase.
 
-**Goal:** Deliver the central `POST /api/query` streaming workflow and source-grounded generated answers.
+### Phase 7: FinRAG Corpus Import And Index Build
 
-**Requirements:** AGNT-01, AGNT-02, AGNT-03, AGNT-04, AGNT-05, AGNT-06, API-02, API-03, API-06, API-07, API-08, API-09
+**Status:** Complete — importer, CLI, index rebuild, docs, and integration tests implemented on 2026-05-13.
 
-**Success Criteria:**
-1. Query workflow emits SSE events in the frontend contract order.
-2. Query rewrite expands company aliases and can split complex reasoning queries.
-3. Intent classification selects factual, analytical, or reasoning prompt templates.
-4. Generated Markdown includes citation markers that map to `done.citations` metadata.
-5. Error and heartbeat behavior is testable and frontend-friendly.
-6. Backend SSE fixtures/examples mirror the imported frontend's current `Message` stage flow and `SidebarRight` retrieval panels.
-7. Answer citation markup can be adapted into the frontend's clickable citation span behavior.
+**Goal:** Add a FinRAG-side import pipeline that turns extracted Markdown/text into `documents.json`, `chunks.json`, and rebuilt retrieval indexes.
 
-**Frontend integration prep:** Read `.planning/frontend-integration-readiness.md` before planning or implementing this phase. Phase 3 should stabilize backend SSE payloads so Phase 4 can replace frontend mocks with adapters instead of redesigning UI.
-
-### Phase 4: Integration And Demo Hardening
-
-**Goal:** Ensure the imported React app can integrate without contract churn and the demo survives provider/network failures.
-
-**Requirements:** INTG-01, INTG-02, INTG-03, INTG-04, INTG-05, INTG-06, INTG-07, INTG-08
+**Requirements:** ING-01, ING-02, ING-03, ING-04, ING-05, ING-06, ING-07, ING-08, PIPE-01, PIPE-02, PIPE-03, PIPE-04
 
 **Success Criteria:**
-1. Contract tests cover `GET /api/documents` and all SSE event payload shapes.
-2. Imported React frontend can run against local backend via `/api` proxy.
-3. Three demo questions complete end-to-end with visible retrieval and citation data.
-4. Demo mode can use cached/mock provider responses when external APIs are unavailable.
-5. Integration issues are fixed at API boundaries without taking over frontend design work.
-6. Frontend mock flow in `frontend/src/App.tsx` is replaced by a backend API/SSE adapter while preserving existing component layout and state shapes.
-7. `GET /api/documents` populates the left document library, and `retrieval_complete`/`rerank_complete` populate the right retrieval panels.
-8. Citation IDs from backend `rerank_complete`/`done.citations` drive the existing clickable citation highlight behavior.
-
-**Frontend integration prep:** Use `.planning/frontend-integration-readiness.md` as the canonical adapter checklist for this phase.
-
-### Phase 5: P1 Enhancements
-
-**Goal:** Add high-value extras only after the MVP path is stable.
-
-**Requirements:** API-10 plus selected QUAL-01, QUAL-02, QUAL-03, QUAL-04 if time permits
-
-**Success Criteria:**
-1. Optional `POST /api/preview-rewrite` returns detected entities and expanded terms.
-2. Recency weighting and numeric consistency checks are added only if they do not destabilize demo flow.
-3. Enhancement tests are isolated so the core MVP remains reliable.
+1. Raw document locations and import commands are documented.
+2. Import script creates schema-compatible `documents.json` and `chunks.json` from Markdown/text inputs.
+3. Chunking is deterministic and preserves title/source/date/company/doc type metadata when available.
+4. Import can rebuild BM25/vector indexes and the existing query flow retrieves imported chunks.
+5. Existing demo fixtures remain usable for tests/fallback.
+6. Tests cover sample import, JSON shape validation, and index build integration.
 
 ## Dependency Map
 
-- Phase 1 blocks all later phases.
-- Phase 2 depends on Phase 1 data and schemas.
-- Phase 3 depends on Phase 2 retrieval/rerank services.
-- Phase 4 depends on stable Phase 3 API contracts and can start with mocks once Phase 1 schemas exist.
-- Phase 5 depends on successful Phase 4 demo hardening.
+- Phase 6 provides text-layer extraction artifacts for PDFs.
+- Phase 7 depends on Phase 6 outputs but should also support manually supplied Markdown/text.
+- Existing v1.0 query and frontend flows depend only on generated `processed` data and rebuilt indexes, so they should continue to work after import.
 
 ## Coverage Validation
 
-- v1 requirements mapped: 35 / 35
-- Unmapped v1 requirements: 0
-- Frontend UI design intentionally excluded from phase goals except integration validation.
+- v1.1 requirements mapped: 17 / 17
+- Unmapped v1.1 requirements: 0
+- Frontend redesign intentionally excluded; imported documents should flow through existing `GET /api/documents`.
 
 ---
-*Last updated: 2026-05-13 after phase 5 completion*
+*Last updated: 2026-05-13 after starting document import pipeline milestone*

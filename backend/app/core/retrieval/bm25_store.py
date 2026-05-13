@@ -24,14 +24,21 @@ class BM25Result:
 
 
 class BM25Store:
-    def __init__(self, chunks: Sequence[Chunk]):
+    def __init__(self, chunks: Sequence[Chunk], tokenized: Optional[Sequence[Sequence[str]]] = None):
         self.chunks = list(chunks)
-        self._tokenized = [self._tokenize(chunk.content) for chunk in self.chunks]
+        self._tokenized = [list(tokens) for tokens in tokenized] if tokenized is not None else [self._tokenize(chunk.content) for chunk in self.chunks]
         self._bm25 = BM25Okapi(self._tokenized) if self._tokenized else None
 
     @classmethod
     def from_chunks(cls, chunks: Sequence[Chunk]) -> "BM25Store":
         return cls(chunks)
+
+    @classmethod
+    def from_index_payload(cls, chunks: Sequence[dict], tokenized: Sequence[Sequence[str]]) -> "BM25Store":
+        parsed_chunks = [Chunk(**item) for item in chunks]
+        if len(parsed_chunks) != len(tokenized):
+            return cls(parsed_chunks)
+        return cls(parsed_chunks, tokenized)
 
     @staticmethod
     def _tokenize(text: str) -> List[str]:

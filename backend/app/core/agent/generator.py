@@ -13,8 +13,6 @@ class AnswerGenerator:
         self.text_provider = text_provider or build_text_provider()
 
     def generate(self, query: str, intent: IntentDetectedEvent, evidence: Sequence[RerankResultItem]) -> str:
-        if not evidence:
-            return "资料中未提及。"
         prompt = build_generation_prompt(query, intent, evidence)
         try:
             answer = self.text_provider.generate_text(prompt, query=query, intent=intent.intent, evidence=evidence)

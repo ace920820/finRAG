@@ -11,11 +11,14 @@ _COMPANY_ALIASES = {
     "茅台": ["贵州茅台", "茅台", "600519", "白酒"],
     "宁德时代": ["宁德时代", "CATL", "300750", "动力电池", "新能源车", "经营风险"],
     "CATL": ["宁德时代", "CATL", "300750", "动力电池"],
+    "英伟达": ["英伟达", "NVIDIA", "NVDA", "revenue", "net revenue", "Data Center"],
+    "NVIDIA": ["英伟达", "NVIDIA", "NVDA", "revenue", "net revenue", "Data Center"],
+    "NVDA": ["英伟达", "NVIDIA", "NVDA", "revenue", "net revenue", "Data Center"],
 }
 
 _REASONING_HINTS = ("对比", "比较", "传导", "影响", "宏观", "行业", "为什么", "如何")
 _ANALYTICAL_HINTS = ("风险", "分析", "潜在", "趋势", "逻辑", "判断", "原因", "机会")
-_FACTUAL_HINTS = ("多少", "是多少", "同比", "增长率", "收入", "净利润", "数据")
+_FACTUAL_HINTS = ("多少", "是多少", "同比", "增长率", "收入", "营收", "净利润", "数据")
 
 
 def analyze_query(query: str) -> tuple[QueryRewriteEvent, IntentDetectedEvent]:
@@ -46,6 +49,8 @@ def detect_entities(query: str) -> List[str]:
         entities.append("贵州茅台")
     if "宁德时代" in query or "CATL" in query or "300750" in query:
         entities.append("宁德时代")
+    if "英伟达" in query or "NVIDIA" in query or "NVDA" in query:
+        entities.append("英伟达")
     if "美联储" in query or "加息" in query:
         entities.append("美联储")
     if "新能源" in query or "动力电池" in query:
@@ -60,8 +65,8 @@ def _expand_terms(query: str) -> List[str]:
             terms.extend(expansions)
     if "风险" in query:
         terms.extend(["经营风险", "政策变化", "原材料价格", "盈利能力"])
-    if "收入" in query or "营业收入" in query:
-        terms.extend(["营业收入", "同比增长", "主要会计数据"])
+    if "收入" in query or "营收" in query or "营业收入" in query:
+        terms.extend(["营业收入", "同比增长", "主要会计数据", "revenue", "net revenue"])
     if "宏观" in query or "行业" in query:
         terms.extend(["宏观消费", "行业竞争", "供应链", "需求变化"])
     return _unique(terms)

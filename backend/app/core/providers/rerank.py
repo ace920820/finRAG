@@ -32,6 +32,7 @@ class BailianRerankProvider:
         self.base_url = base_url or settings.model_base_url
         self.api_key = api_key if api_key is not None else settings.model_api_key
         self.model = model or settings.rerank_model
+        self.timeout_seconds = settings.provider_timeout_seconds
         if not self.api_key:
             raise ValueError("Bailian rerank provider requires FINRAG_MODEL_API_KEY")
         if httpx is None:
@@ -40,7 +41,7 @@ class BailianRerankProvider:
     def rerank(self, query: str, documents: Sequence[str]) -> List[ProviderResult]:
         headers = {"Authorization": f"Bearer {self.api_key}"}
         payload = {"model": self.model, "query": query, "documents": list(documents)}
-        response = httpx.post(f"{self.base_url.rstrip('/')}/rerank", json=payload, headers=headers, timeout=60)
+        response = httpx.post(f"{self.base_url.rstrip('/')}/rerank", json=payload, headers=headers, timeout=self.timeout_seconds)
         response.raise_for_status()
         data = response.json()
         results: List[ProviderResult] = []
@@ -55,7 +56,7 @@ class MockTextProvider:
         intent = kwargs.get("intent", "analytical")
         query = kwargs.get("query", "")
         if not evidence:
-            return "资料中未提及。"
+            return f"### 回答\n\n当前本地资料中未检索到可引用证据，无法给出带引用的结论。\n\n### 查询\n\n{query}"
         first = evidence[0]
         cite = f'<span class="cite" data-id="{first.citation_id}">[{first.citation_id}]</span>'
         if intent == "factual":
@@ -73,6 +74,7 @@ class BailianTextProvider:
         self.base_url = base_url or settings.model_base_url
         self.api_key = api_key if api_key is not None else settings.model_api_key
         self.model = model or settings.text_model
+        self.timeout_seconds = settings.provider_timeout_seconds
         if not self.api_key:
             raise ValueError("Bailian text provider requires FINRAG_MODEL_API_KEY")
         if httpx is None:
@@ -88,7 +90,7 @@ class BailianTextProvider:
             ],
             "temperature": 0.2,
         }
-        response = httpx.post(f"{self.base_url.rstrip('/')}/chat/completions", json=payload, headers=headers, timeout=60)
+        response = httpx.post(f"{self.base_url.rstrip('/')}/chat/completions", json=payload, headers=headers, timeout=self.timeout_seconds)
         response.raise_for_status()
         data = response.json()
         choices = data.get("choices", [])

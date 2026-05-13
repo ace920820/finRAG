@@ -19,5 +19,14 @@ def test_query_rewrite_expands_catl_risk_terms():
     assert intent.intent == 'analytical'
 
 
+def test_query_rewrite_expands_nvidia_aliases():
+    rewrite, intent = analyze_query('英伟达最近营收的信息是？')
+
+    assert 'NVIDIA' in rewrite.expanded
+    assert 'NVDA' in rewrite.expanded
+    assert 'revenue' in rewrite.expanded
+    assert intent.intent == 'factual'
+
+
 def test_reasoning_intent_for_macro_industry_question():
     assert classify_intent('宏观消费变化如何影响白酒行业？') == 'reasoning'

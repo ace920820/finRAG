@@ -1,9 +1,9 @@
 # Project: FinRAG 金融智能研究 Agent
 
 **Initialized:** 2026-05-13  
-**Milestone:** Interview-demo MVP  
-**Target delivery window:** 2 days  
-**Primary owner focus:** Backend development, backend testing, API contract stability, and frontend-backend integration
+**Milestone:** v1.1 Document Import Pipeline
+**Target delivery window:** Local ingestion pipeline iteration
+**Primary owner focus:** Document ingestion, PDF extraction adaptation, chunk generation, index rebuild, and backend validation
 
 ## What This Is
 
@@ -61,13 +61,13 @@ The frontend team owns React UI implementation, interaction design, and visual p
 
 | Area | Decision | Rationale | Outcome |
 |------|----------|-----------|---------|
-| Backend framework | Python 3.10 + FastAPI | Fast SSE support and Python-native RAG ecosystem | Pending implementation |
-| Streaming contract | `POST /api/query` with `text/event-stream` | Single integration point for frontend answer and retrieval-stage updates | Pending implementation |
-| Retrieval | FAISS + BM25 + RRF | Demonstrates semantic and lexical retrieval comparison | Pending implementation |
-| Rerank | bge-reranker-large API with degradation path | Better Top 5 evidence quality; can fall back to fused Top 5 | Pending implementation |
-| Generation | DeepSeek / Qwen / OpenAI compatible LLM client | Flexible API provider switching for demo reliability | Pending implementation |
+| Backend framework | Python 3.10 + FastAPI | Fast SSE support and Python-native RAG ecosystem | Implemented in v1.0 |
+| Streaming contract | `POST /api/query` with `text/event-stream` | Single integration point for frontend answer and retrieval-stage updates | Implemented in v1.0 |
+| Retrieval | BM25 + vector + RRF | Demonstrates semantic and lexical retrieval comparison | Implemented in v1.0; v1.1 will feed real imported chunks |
+| Rerank | Bailian-compatible rerank API with degradation path | Better Top 5 evidence quality; can fall back to fused Top 5 | Implemented in v1.0 |
+| Generation | Qwen Plus / OpenAI-compatible provider client | Flexible API provider switching for demo reliability | Implemented in v1.0 with mock fallback |
 | Frontend ownership | External React team | Avoid duplicating UI design work; focus on backend and integration | Active constraint |
-| Demo data strategy | Real or semi-real curated financial documents plus manual JSON fallback | Prevent PDF/network failures from blocking demo | Pending implementation |
+| Data strategy | Fixture fallback plus v1.1 import pipeline | Prevent PDF/network failures while enabling real corpus ingestion | v1.1 active focus |
 
 ## Requirements
 
@@ -144,6 +144,21 @@ Practical requirements:
 - Goal-driven execution: define verifiable success criteria and run targeted validation.
 - Avoid speculative abstractions, broad refactors, or frontend redesign work unless explicitly requested.
 
+
+
+## Current State
+
+- v1.0 mock-data MVP is complete and passed user smoke testing with mock data.
+- Backend, frontend integration, query SSE, and preview rewrite are implemented.
+- The main known gap is replacing hand-maintained fixture JSON with a real document import pipeline.
+
+## Current Milestone: v1.1 Document Import Pipeline
+
+Goal: adapt the provided `pdf2md/` project and add FinRAG-side import tooling so real PDFs/Markdown can become `documents.json`, `chunks.json`, and rebuilt retrieval indexes.
+
+Planned phases:
+1. Phase 6 — PDF Extraction Adapter.
+2. Phase 7 — FinRAG Corpus Import And Index Build.
 
 ## Evolution
 
