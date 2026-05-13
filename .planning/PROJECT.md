@@ -1,6 +1,68 @@
 # Project: FinRAG 金融智能研究 Agent
 
 **Initialized:** 2026-05-13  
+**Current shipped milestone:** v1.1 Document Import Pipeline  
+**Last updated:** 2026-05-13 after v1.1 milestone completion
+
+## Current State
+
+FinRAG is a local financial-domain RAG Agent demo with a FastAPI backend, React frontend integration, and a repeatable document import pipeline.
+
+Shipped capabilities:
+
+- v1.0 mock-data MVP: backend schemas, fixture data, hybrid retrieval, rerank/generation provider abstraction, SSE query API, frontend integration, and preview rewrite.
+- v1.1 document import pipeline: generic PDF extraction through `pdf2md --profile finrag`, raw Markdown artifacts, backend import into `documents.json`/`chunks.json`, deterministic chunking, and BM25/vector index rebuild.
+- Real-corpus import has been smoke tested with 40 PDFs across 宁德时代、贵州茅台、NVIDIA、台积电, producing 40 documents and 9303 chunks.
+
+## Core Value
+
+Users can ask financial research questions and receive structured, source-grounded Markdown analysis while the system exposes retrieval and citation evidence for demo trust.
+
+## Current Architecture
+
+```text
+PDF/text sources
+    ↓ pdf2md --profile finrag
+backend/app/data/raw/
+    ↓ backend/scripts/import_corpus.py
+backend/app/data/processed/documents.json + chunks.json
+    ↓ backend/scripts/build_index.py
+backend/app/data/index/bm25_index.json + vector_index.json
+    ↓ existing FastAPI APIs
+React frontend / SSE query workflow
+```
+
+## Validated Requirements
+
+- ✓ Mock-data MVP and frontend/backend integration — v1.0.
+- ✓ PDF extraction adapter with traceable raw Markdown outputs — v1.1.
+- ✓ Markdown/text import into existing FinRAG document/chunk schemas — v1.1.
+- ✓ Deterministic chunk IDs/document IDs and index rebuild — v1.1.
+- ✓ Existing document API/query flow works with imported corpus contracts — v1.1.
+
+## Active Constraints
+
+- Frontend design remains owned externally; backend work should preserve API contracts and focus on integration/testing.
+- `.env` and provider API keys must remain local and uncommitted.
+- Tests should stay deterministic and default to mock providers unless explicitly doing live-provider UAT.
+- OCR is out of scope unless a future milestone explicitly requires scanned-PDF support.
+
+## Next Milestone Goals
+
+Potential next work:
+
+1. Run real-provider UAT using Alibaba Bailian text, embedding, and rerank models.
+2. Improve corpus metadata quality with explicit metadata manifests and better title/company/doc-type normalization.
+3. Decide how to manage large generated corpus/index artifacts in git or external storage.
+4. Harden frontend/backend integration using the newly imported real corpus.
+5. Add OCR only if scanned source PDFs become a requirement.
+
+<details>
+<summary>Archived project context before v1.1 completion</summary>
+
+# Project: FinRAG 金融智能研究 Agent
+
+**Initialized:** 2026-05-13  
 **Milestone:** v1.1 Document Import Pipeline
 **Target delivery window:** Local ingestion pipeline iteration
 **Primary owner focus:** Document ingestion, PDF extraction adaptation, chunk generation, index rebuild, and backend validation
@@ -179,3 +241,5 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 *Last updated: 2026-05-13 after initialization*
+
+</details>

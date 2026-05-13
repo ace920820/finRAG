@@ -1,66 +1,32 @@
-# Roadmap: FinRAG v1.1 Document Import Pipeline
+# Roadmap: FinRAG
 
-**Created:** 2026-05-13  
-**Granularity:** Coarse  
-**Primary emphasis:** Real document ingestion, PDF extraction reuse, deterministic chunking, and index rebuild.
+**Last updated:** 2026-05-13  
+**Current status:** v1.1 Document Import Pipeline shipped.
 
-## Prior Milestone
+## Shipped Milestones
 
-v1.0 delivered the mock-data FinRAG MVP: FastAPI backend, hybrid retrieval/rerank, SSE query API, React integration, and preview rewrite. The user has passed smoke testing with mock data.
+| Milestone | Name | Status | Phases | Summary | Archive |
+| --- | --- | --- | --- | --- | --- |
+| v1.0 | Mock-data MVP | Shipped | 1-5 | FastAPI backend, hybrid retrieval/rerank, SSE query API, React integration, preview rewrite, and mock-data demo readiness. | Prior phase artifacts in `.planning/phases/01-*` through `.planning/phases/05-*` |
+| v1.1 | Document Import Pipeline | Shipped | 6-7 | PDF/text-layer extraction, raw Markdown artifacts, FinRAG corpus import, deterministic chunking, and retrieval index rebuild. | `.planning/milestones/v1.1-ROADMAP.md` |
 
-## Overview
+## Current Capabilities
 
-| Phase | Name | Goal | Requirements | UI Hint | Status |
-|-------|------|------|--------------|---------|--------|
-| 6 | PDF Extraction Adapter | Adapt the provided `pdf2md` project so FinRAG can extract text-layer PDFs into traceable Markdown/raw artifacts. | PDF-01..05 | no | Complete |
-| 7 | FinRAG Corpus Import And Index Build | Convert extracted Markdown/text into FinRAG documents/chunks, rebuild indexes, and document the ingestion workflow. | ING-01..08, PIPE-01..04 | no | Complete |
+- Backend can run locally and serve existing query/document APIs.
+- Corpus data can be generated from source PDFs using `pdf2md --profile finrag`.
+- Raw Markdown/text can be imported into `documents.json` and `chunks.json`.
+- BM25/vector indexes can be rebuilt from imported chunks.
+- Frontend document list and query flow continue using existing API contracts.
 
-## Phase Details
+## Next Milestone Candidates
 
-### Phase 6: PDF Extraction Adapter
+- Real-provider UAT with Alibaba Bailian text, embedding, and rerank models.
+- Corpus quality improvements: metadata manifests, table cleanup, and document-type heuristics.
+- Production data artifact strategy for large processed/index files.
+- Frontend/backend polish after real React integration feedback.
+- Optional OCR milestone if scanned PDFs become required.
 
-**Status:** Complete — implemented in `pdf2md` with `--profile finrag`, validated by `cd pdf2md && python3 -m pytest` on 2026-05-13.
+## Archive Index
 
-**Goal:** Reuse and adapt `pdf2md` for FinRAG source PDFs without Elite Daily-specific assumptions blocking generic financial documents.
-
-**Requirements:** PDF-01, PDF-02, PDF-03, PDF-04, PDF-05
-
-**Success Criteria:**
-1. `pdf2md` can process a FinRAG raw PDF directory or single PDF into Markdown/raw outputs.
-2. Outputs preserve source path/name, title, extraction status, page count, hashes, and failure records.
-3. Re-runs skip unchanged files unless forced.
-4. Failed PDFs are recorded without aborting the batch.
-5. The output location can target a FinRAG-owned data directory.
-
-**Notes:** Follow `pdf2md/AGENTS.md` for files under `pdf2md/`. Do not introduce OCR in this phase.
-
-### Phase 7: FinRAG Corpus Import And Index Build
-
-**Status:** Complete — importer, CLI, index rebuild, docs, and integration tests implemented on 2026-05-13.
-
-**Goal:** Add a FinRAG-side import pipeline that turns extracted Markdown/text into `documents.json`, `chunks.json`, and rebuilt retrieval indexes.
-
-**Requirements:** ING-01, ING-02, ING-03, ING-04, ING-05, ING-06, ING-07, ING-08, PIPE-01, PIPE-02, PIPE-03, PIPE-04
-
-**Success Criteria:**
-1. Raw document locations and import commands are documented.
-2. Import script creates schema-compatible `documents.json` and `chunks.json` from Markdown/text inputs.
-3. Chunking is deterministic and preserves title/source/date/company/doc type metadata when available.
-4. Import can rebuild BM25/vector indexes and the existing query flow retrieves imported chunks.
-5. Existing demo fixtures remain usable for tests/fallback.
-6. Tests cover sample import, JSON shape validation, and index build integration.
-
-## Dependency Map
-
-- Phase 6 provides text-layer extraction artifacts for PDFs.
-- Phase 7 depends on Phase 6 outputs but should also support manually supplied Markdown/text.
-- Existing v1.0 query and frontend flows depend only on generated `processed` data and rebuilt indexes, so they should continue to work after import.
-
-## Coverage Validation
-
-- v1.1 requirements mapped: 17 / 17
-- Unmapped v1.1 requirements: 0
-- Frontend redesign intentionally excluded; imported documents should flow through existing `GET /api/documents`.
-
----
-*Last updated: 2026-05-13 after starting document import pipeline milestone*
+- v1.1 roadmap archive: `.planning/milestones/v1.1-ROADMAP.md`
+- v1.1 requirements archive: `.planning/milestones/v1.1-REQUIREMENTS.md`

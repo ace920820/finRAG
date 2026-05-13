@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Document Import Pipeline
-current_phase: 7
-status: phase_7_complete_ready_for_milestone_audit
+current_phase: null
+status: milestone_complete
 last_updated: "2026-05-13T00:00:00.000Z"
 progress:
   total_phases: 2
@@ -16,63 +16,39 @@ progress:
 # State: FinRAG
 
 **Initialized:** 2026-05-13  
-**Current phase:** 7
-**Status:** Phase 7 complete; ready for milestone audit/complete
+**Current milestone:** v1.1 Document Import Pipeline  
+**Status:** Complete and archived
 
-## Project Memory
+## Completed Milestones
 
-- v1.0 mock-data MVP completed and passed user smoke testing with mock data.
-- User has provided `pdf2md/` as a reusable PDF text-layer extraction project.
-- Main v1.1 goal is a real document import pipeline: PDF/Markdown → documents/chunks → indexes → existing RAG flow.
-- Preserve existing frontend/backend query flow; import should feed existing APIs rather than redesign them.
+- v1.0 Mock-data MVP — completed earlier in this project cycle.
+- v1.1 Document Import Pipeline — completed 2026-05-13.
+
+## v1.1 Completion Summary
+
+- Phase 6 adapted `pdf2md` for generic FinRAG PDF extraction.
+- Phase 7 added backend raw Markdown/text import, deterministic chunking, processed JSON output, and index rebuild.
+- Real corpus smoke import completed: 40 PDFs → 40 documents → 9303 chunks.
+- Frontend page title was changed from AI Studio branding to `FinRAG`.
+
+## Validation
+
+- `cd pdf2md && python3 -m pytest` → 70 passed during Phase 6.
+- `cd backend && python3 -m pytest` → 35 passed during Phase 7.
+- Focused post-import checks passed after importing 40 PDFs.
+- `cd frontend && npm run lint && npm run build` passed after title change.
+
+## Archives
+
+- Roadmap archive: `.planning/milestones/v1.1-ROADMAP.md`
+- Requirements archive: `.planning/milestones/v1.1-REQUIREMENTS.md`
 
 ## Next Action
 
-Run `/gsd-complete-milestone` after optional manual real-corpus UAT, or continue with follow-up improvements if needed.
+Run `/gsd-new-milestone` to define the next milestone, or commit/tag the completed milestone after reviewing generated data and untracked files.
 
 ## Active Constraints
 
-- No OCR for v1.1 unless explicitly requested later.
-- Keep fixture/demo data available as fallback for deterministic tests.
-- Follow `pdf2md/AGENTS.md` when modifying files under `pdf2md/`.
-- Apply `karpathy-guidelines` for coding, review, refactor, debugging, and phase execution.
-
-## Phase 6 Completion
-
-- Added `pdf2md --profile finrag` for generic FinRAG PDF extraction.
-- Outputs now target `<raw-root>/extracted/<collection-name>/` and `<raw-root>/_meta/`.
-- Markdown and JSON manifests preserve source path/name, title, status, page count, and hashes.
-- Idempotent skip, `--force`, and per-file failure isolation are covered by tests.
-- Validation passed: `cd pdf2md && python3 -m pytest` → 70 passed.
-
-## Phase 7 Completion
-
-- Added backend raw Markdown/text importer for `backend/app/data/raw/`.
-- Generated existing-schema `documents.json` and `chunks.json` with deterministic IDs.
-- Added `backend/scripts/import_corpus.py` with optional index rebuild.
-- Extended index build to support explicit processed/index paths and force rebuild.
-- Validated imported documents through loader/API/retrieval integration tests.
-- Manual real-corpus UAT remains available via `07-UAT.md`.
-
-## Quick Tasks Completed
-
-| Date | ID | Task | Result |
-| --- | --- | --- | --- |
-| 2026-05-13 | 260513-qzc | Fix NVIDIA revenue query hang/no response | Query now streams early SSE events, loads cached indexes correctly, retrieves NVIDIA revenue evidence, and returns answer chunks. |
-
-## Roadmap Evolution
-
-- Started v1.1 Document Import Pipeline after user confirmed mock-data smoke test passed.
-- Phase 6 added: PDF Extraction Adapter.
-- Phase 7 added: FinRAG Corpus Import And Index Build.
-
-## Artifact Index
-
-- Project context: `.planning/PROJECT.md`
-- Requirements: `.planning/REQUIREMENTS.md`
-- Roadmap: `.planning/ROADMAP.md`
-- Config: `.planning/config.json`
-- Provided extraction project: `pdf2md/`
-
----
-*Last updated: 2026-05-13 after starting v1.1 document import pipeline milestone*
+- Do not commit `.env` or provider API keys.
+- Decide separately whether large generated corpus/index artifacts belong in git.
+- Keep tests defaulting to mock providers unless explicitly running live Bailian UAT.
