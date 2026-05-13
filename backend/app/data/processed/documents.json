@@ -1,0 +1,57 @@
+[
+  {
+    "doc_id": "d001",
+    "company": "贵州茅台",
+    "company_aliases": [
+      "茅台",
+      "600519",
+      "贵州茅台酒"
+    ],
+    "doc_type": "financial_report",
+    "title": "贵州茅台 2023 年年度报告",
+    "date": "2024-03-28",
+    "source": "贵州茅台2023年报",
+    "content": "贵州茅台2023年报摘要。"
+  },
+  {
+    "doc_id": "d002",
+    "company": "宁德时代",
+    "company_aliases": [
+      "CATL",
+      "300750",
+      "宁德时代新能源"
+    ],
+    "doc_type": "financial_report",
+    "title": "宁德时代 2023 年年度报告",
+    "date": "2024-03-15",
+    "source": "宁德时代2023年报",
+    "content": "宁德时代2023年报摘要。"
+  },
+  {
+    "doc_id": "d003",
+    "company": "宁德时代",
+    "company_aliases": [
+      "CATL",
+      "300750"
+    ],
+    "doc_type": "research_report",
+    "title": "宁德时代深度研究报告",
+    "date": "2024-04-10",
+    "source": "券商研报",
+    "content": "宁德时代深度研究摘要。"
+  },
+  {
+    "doc_id": "d004",
+    "company": "宏观新闻",
+    "company_aliases": [
+      "美联储",
+      "新能源",
+      "A股"
+    ],
+    "doc_type": "news",
+    "title": "美联储加息与新能源板块新闻汇总",
+    "date": "2024-04-12",
+    "source": "新闻汇编",
+    "content": "宏观与行业新闻摘要。"
+  }
+]

@@ -1,0 +1,25 @@
+[
+  {
+    "id": "demo-factual",
+    "question": "贵州茅台 2023 年营业收入是多少？同比增长率？",
+    "expected_docs": [
+      "d001"
+    ]
+  },
+  {
+    "id": "demo-analytical",
+    "question": "宁德时代近期有哪些潜在经营风险？",
+    "expected_docs": [
+      "d002",
+      "d003"
+    ]
+  },
+  {
+    "id": "demo-reasoning",
+    "question": "美联储加息对 A 股新能源板块可能产生什么影响？",
+    "expected_docs": [
+      "d003",
+      "d004"
+    ]
+  }
+]
