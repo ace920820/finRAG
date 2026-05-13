@@ -1,8 +1,8 @@
 # Project: FinRAG 金融智能研究 Agent
 
 **Initialized:** 2026-05-13  
-**Current shipped milestone:** v1.1 Document Import Pipeline  
-**Last updated:** 2026-05-13 after starting v1.2 milestone
+**Current shipped milestone:** v1.2 Frontend Evidence Traceability & Interaction Polish  
+**Last updated:** 2026-05-13 after starting v1.3 milestone
 
 ## Current State
 
@@ -13,6 +13,7 @@ Shipped capabilities:
 - v1.0 mock-data MVP: backend schemas, fixture data, hybrid retrieval, rerank/generation provider abstraction, SSE query API, frontend integration, and preview rewrite.
 - v1.1 document import pipeline: generic PDF extraction through `pdf2md --profile finrag`, raw Markdown artifacts, backend import into `documents.json`/`chunks.json`, deterministic chunking, and BM25/vector index rebuild.
 - Real-corpus import has been smoke tested with 40 PDFs across 宁德时代、贵州茅台、NVIDIA、台积电, producing 40 documents and 9303 chunks.
+- v1.2 frontend evidence traceability work added real-corpus entry points, document opening, retrieval panel polish, and per-turn evidence snapshots.
 
 ## Core Value
 
@@ -48,26 +49,34 @@ React frontend / SSE query workflow
 - OCR is out of scope unless a future milestone explicitly requires scanned-PDF support.
 
 
-## Current Milestone: v1.2 Frontend Evidence Traceability & Interaction Polish
+## Current Milestone: v1.3 Knowledge Base Management
 
-**Goal:** Make the real-corpus demo easier to navigate and fully traceable across multi-turn conversations.
+**Goal:** Add lightweight knowledge base management so FinRAG can manage documents, trigger import/reindex operations, and integrate the externally built management page into the existing single frontend app.
 
 **Target features:**
-- Rewrite the three left-sidebar example questions around the imported corpus companies.
-- Let users open documents directly from the left document library.
-- Make BM25, Vector, and Rerank panels independently collapsible, including all-collapsed state.
-- Show full Rerank Top 5 evidence text and consistently render rerank scores.
-- Preserve retrieval snapshots and citation mappings per conversation turn.
+- Integrate `finrag-knowledge-base-manager/` into `frontend/` so only one frontend app needs to run.
+- Add a “知识库管理” entry from the chat header and a return path back to the chat screen.
+- Implement read-only `/api/kb/*` APIs for overview, document list, and document detail.
+- Implement upload, import job, reindex, single-document reimport, and soft-disable/delete APIs.
+- Wire the management page to real backend endpoints and run regression checks for existing chat/query flows.
+- Add table-aware PDF extraction, table chunking, structured financial facts, and table-aware retrieval for numeric financial questions.
+
+## Current Milestone Addendum: Table-Aware RAG
+
+Based on `docs/table处理.txt`, v1.3 now includes follow-on phases to preserve table structure and improve financial numeric QA:
+
+1. Phase 14 — extract table objects during PDF processing and emit table artifacts/manifests.
+2. Phase 15 — import table artifacts as table/table-row/table-summary chunks and structured facts.
+3. Phase 16 — route metric/numeric questions through table-aware retrieval and expose table evidence.
 
 ## Next Milestone Goals
 
 Potential next work:
 
-1. Run real-provider UAT using Alibaba Bailian text, embedding, and rerank models.
-2. Improve corpus metadata quality with explicit metadata manifests and better title/company/doc-type normalization.
-3. Decide how to manage large generated corpus/index artifacts in git or external storage.
-4. Harden frontend/backend integration using the newly imported real corpus.
-5. Add OCR only if scanned source PDFs become a requirement.
+1. Improve corpus metadata quality with explicit metadata manifests and better title/company/doc-type normalization.
+2. Decide how to manage large generated corpus/index artifacts in git or external storage.
+3. Add OCR only if scanned source PDFs become a requirement.
+4. Polish knowledge base management UI after backend integration feedback.
 
 <details>
 <summary>Archived project context before v1.1 completion</summary>

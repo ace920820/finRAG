@@ -1,61 +1,64 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Frontend Evidence Traceability & Interaction Polish
-current_phase: null
-status: implementation_complete_ready_for_smoke_test
+milestone: v1.3
+milestone_name: Knowledge Base Management
+current_phase: 14
+status: phase_14_planned_ready_for_execution
 last_updated: "2026-05-13T00:00:00.000Z"
 progress:
-  total_phases: 3
+  total_phases: 6
   completed_phases: 3
   total_plans: 3
   completed_plans: 3
-  percent: 100
+  percent: 50
 ---
 
 # State: FinRAG
 
-**Initialized:** 2026-05-13
-**Current milestone:** v1.2 Frontend Evidence Traceability & Interaction Polish
-**Status:** Implementation complete; ready for manual smoke test.
+**Initialized:** 2026-05-13  
+**Current milestone:** v1.3 Knowledge Base Management  
+**Status:** Phase 14 planned; ready for execution.
 
 ## Current Position
 
-Phase: Complete
-Plan: Phases 8-10 completed
-Status: Ready for manual smoke test
-Last activity: 2026-05-13 — Implemented v1.2 frontend evidence traceability and interaction polish.
+Phase: 14 — Table-Aware PDF Extraction  
+Plan: `.planning/phases/14-table-aware-pdf-extraction/PLAN.md`  
+Status: Planned; ready for execution  
+Last activity: 2026-05-13 — Planned Phase 14 table-aware PDF extraction from `docs/table处理.txt`.
 
 ## Completed Milestones
 
 - v1.0 Mock-data MVP — completed earlier in this project cycle.
 - v1.1 Document Import Pipeline — completed 2026-05-13.
+- v1.2 Frontend Evidence Traceability & Interaction Polish — implementation complete and ready for smoke test.
 
-## v1.2 Focus
+## v1.3 Focus
 
-- Rewrite sidebar example questions for the imported real corpus.
-- Let users open documents from the left document library.
-- Improve retrieval visualization panel collapse/detail interactions.
-- Preserve per-turn retrieval and citation evidence across multi-turn conversations.
+- Integrate `finrag-knowledge-base-manager/` into the existing `frontend/` app.
+- Add backend `/api/kb/*` APIs for overview, documents, upload, import jobs, reindex, and maintenance.
+- Wire the integrated React page to real backend APIs.
+- Preserve existing chat, document library, preview rewrite, and SSE query behavior.
 
 ## Active Constraints
 
-- Do not commit `.env` or provider API keys.
-- Keep tests defaulting to mock providers unless explicitly running live Bailian UAT.
-- Avoid full frontend redesign; make targeted interaction/state changes.
-- Preserve existing FastAPI/SSE contracts unless a minimal document-open endpoint is required.
+- Do not run or require a second frontend project for the knowledge base manager.
+- Do not redesign the externally provided management page beyond minimal integration needs.
+- Keep `.env` and provider API keys uncommitted.
+- Default tests should remain deterministic and not require live model APIs.
 
 ## Next Action
 
-Run manual smoke test for example questions, document opening, panel collapse, Rerank details, and per-turn traceability. Then run milestone completion if accepted.
-
-## Archives
-
-- Roadmap archive: `.planning/milestones/v1.1-ROADMAP.md`
-- Requirements archive: `.planning/milestones/v1.1-REQUIREMENTS.md`
+Execute Phase 14 for table-aware PDF extraction, then continue with Phase 15 table chunking and structured facts.
 
 ## Quick Tasks Completed
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
-| 2026-05-13 | 260513-tpr | Fix Bailian rerank degradation | Corrected DashScope rerank payload; live rerank now returns real relevance scores without degradation. |
+| 2026-05-13 | kb-import-data-loss-fix | Fix knowledge-base import data loss after PDF upload | Prevented zero-document import from overwriting processed corpus, changed API import to merge via temp directory, restored processed corpus/index, and added regression tests for PDF-only and Markdown incremental imports. |
+| 2026-05-13 | kb-corpus-40-restore | Restore intended 40-PDF corpus and NVIDIA Q3 retrieval | Rebuilt raw/processed/index from `data/docs/source_documents`, restored 40 documents/9303 chunks, preserved full chunk content through retrieval/rerank, and added regression coverage for NVIDIA FY2026 Q3 revenue retrieval. |
+
+## Roadmap Updates
+
+| Date | Update | Result |
+| --- | --- | --- |
+| 2026-05-13 | Added table-aware RAG phases | Added phases 14-16 for table extraction, table chunk/facts import, and table-aware retrieval/QA integration based on `docs/table处理.txt`. |

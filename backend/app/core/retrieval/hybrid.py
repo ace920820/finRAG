@@ -65,7 +65,8 @@ class HybridRetriever:
             scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (self.rrf_k + rank)
             payloads[hit.chunk_id] = self._hit_to_payload(hit)
         for rank, hit in enumerate(supplemental_hits, start=1):
-            scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 0.08 + 1.0 / (self.rrf_k + rank)
+            supplemental_score = 0.08 + min(0.25, float(getattr(hit, "score", 0.0)) * 0.03) + 1.0 / (self.rrf_k + rank)
+            scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + supplemental_score
             payloads[hit.chunk_id] = self._hit_to_payload(hit)
         boosts = self._entity_boost_terms(query)
         topical_terms = self._topical_boost_terms(query)
@@ -106,6 +107,10 @@ class HybridRetriever:
                 score += 2.0
             elif "fy2026q2" in hit.title.lower() or "2025-08" in hit.date:
                 score += 1.0
+            if any(marker in query.lower() for marker in ("第三季度", "三季度", "q3")) and "fy2026q3" in hit.title.lower():
+                score += 2.0
+            if any(marker in query.lower() for marker in ("总营收", "营收", "收入", "revenue")) and "condensed consolidated statements of income" in haystack and "three months ended" in haystack and "revenue" in haystack:
+                score += 4.0
             scored.append((score, hit))
         ranked = sorted(scored, key=lambda item: item[0], reverse=True)[:top_k]
         results: List[BM25Result] = []
@@ -179,4 +184,5 @@ class HybridRetriever:
             page=payload["page"],
             preview=payload["preview"],
             score=float(payload.get("score", getattr(hit, "score", 0.0))),
+            content=payload.get("content", payload["preview"]),
         )

@@ -59,6 +59,7 @@ class RetrievalResultItem(BaseModel):
     page: Optional[int] = None
     preview: str
     score: float
+    content: Optional[str] = None
 
 
 class RerankResultItem(BaseModel):
@@ -88,3 +89,83 @@ class CitationMetadata(BaseModel):
     page: Optional[int] = None
     source: Optional[str] = None
     section: Optional[str] = None
+
+
+KBStatus = Literal["ready", "importing", "failed", "not_initialized"]
+KBDocumentStatus = Literal["active", "disabled", "failed"]
+
+
+class KBOverviewResponse(BaseModel):
+    total_documents: int
+    total_chunks: int
+    last_import_at: Optional[str] = None
+    last_reindex_at: Optional[str] = None
+    status: KBStatus
+
+
+class KBDocumentListItem(BaseModel):
+    doc_id: str
+    title: str
+    company: str
+    doc_type: DocType
+    date: str
+    source: Optional[str] = None
+    source_path: str = ""
+    chunk_count: int
+    status: KBDocumentStatus = "active"
+    collection_name: str = "default"
+    error_message: Optional[str] = None
+
+
+class KBDocumentListResponse(BaseModel):
+    total: int
+    documents: list[KBDocumentListItem]
+
+
+class KBChunkSummary(BaseModel):
+    chunk_id: str
+    chunk_index: int
+    section: str = ""
+    page_num: Optional[int] = None
+    content: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class KBDocumentDetail(KBDocumentListItem):
+    chunks: list[KBChunkSummary] = Field(default_factory=list)
+
+
+ImportJobStatus = Literal["pending", "running", "completed", "failed"]
+ReindexStatus = Literal["not_requested", "running", "completed", "failed"]
+
+
+class KBUploadResponse(BaseModel):
+    uploaded: int
+    saved_paths: list[str]
+
+
+class KBImportRequest(BaseModel):
+    collection_name: str = "default"
+    source_dir: Optional[str] = None
+    processed_dir: Optional[str] = None
+    rebuild_index: bool = False
+    default_company: str = "未知"
+    default_doc_type: DocType = "research_report"
+    default_date: str = "unknown"
+
+
+class KBImportJobResponse(BaseModel):
+    job_id: str
+    status: ImportJobStatus
+    total_files: int = 0
+    success_count: int = 0
+    fail_count: int = 0
+    created_at: str
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    error_messages: list[str] = Field(default_factory=list)
+    reindex_status: ReindexStatus = "not_requested"
+
+
+class KBReindexResponse(BaseModel):
+    status: Literal["completed"]

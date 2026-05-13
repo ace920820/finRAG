@@ -57,8 +57,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.rebuild_index:
         env = os.environ.copy()
-        env["FINRAG_PROCESSED_DATA_DIR"] = str(args.processed_dir)
-        env["FINRAG_INDEX_DIR"] = str(args.index_dir)
+        env["FINRAG_PROCESSED_DATA_DIR"] = str(args.processed_dir.resolve())
+        env["FINRAG_INDEX_DIR"] = str(args.index_dir.resolve())
         subprocess.run([sys.executable, str(BACKEND_DIR / "scripts" / "build_index.py")], cwd=BACKEND_DIR, check=True, env=env)
         print(f"  Index dir: {args.index_dir}")
     return 0

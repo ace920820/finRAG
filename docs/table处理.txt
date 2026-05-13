@@ -1,0 +1,204 @@
+金融 RAG 不能只靠普通文本层抽取。财报、年报、研报里的核心信息大量在表格里；如果表格结构被打散，RAG 会出现两个问题：
+召回错：表头、行名、单位、数值失去关系，embedding 不知道 57,006 对应 revenue 还是 gross profit。
+生成错：LLM 拿到碎片化文本后容易错配指标、年份、币种、单位。
+所以更合理的做法不是“把表格也当普通文本切块”，而是做 table-aware RAG。
+1. 通常 RAG 系统怎么处理表格？
+成熟做法一般是三层：
+PDF
+→ 文本抽取 + 表格抽取
+→ 表格结构化保存
+→ 多路检索：文本向量检索 + 表格检索 + 结构化查询
+
+不是单纯：
+PDF → text → chunk → embedding
+
+而是：
+PDF page
+├── 普通段落 text chunks
+├── 表格 table objects
+│ ├── markdown/html 表格
+│ ├── CSV / JSON dataframe
+│ ├── table summary
+│ └── cell/row/column metadata
+└── 图表 chart objects
+2. 表格不要直接粗暴切成普通 chunk
+表格最重要的是结构关系：
+指标 | 2024 | 2025
+营收 | 100 | 120
+净利润 | 20 | 25
+
+如果文本层抽成：
+指标 2024 2025 营收 100 120 净利润 20 25
+
+模型很难稳定知道：
+120 是哪一年的？
+是营收还是净利润？
+单位是百万、亿美元、人民币、台币？
+这是合并报表还是母公司报表？
+所以表格 chunk 应该保留结构，例如：
+Table: Consolidated Statements of Income
+Company: NVIDIA
+Period: FY2026 Q3
+Unit: USD millions
+Page: 45
+
+| Metric | Three Months Ended Oct 26, 2025 | Three Months Ended Oct 27, 2024 |
+|---|---:|---:|
+| Revenue | 57,006 | 35,082 |
+| Gross profit | ... | ... |
+
+这样才适合进入 RAG。
+3. 推荐的表格向量化方式
+表格不要只做一种 embedding。建议做 多表示索引。
+A. 表格摘要 embedding
+给每张表生成一个可检索摘要：
+This table shows NVIDIA consolidated income statement for FY2026 Q3,
+including revenue, gross profit, operating income, net income, and EPS.
+Unit: USD millions.
+
+适合召回整张表。
+B. 表格 Markdown embedding
+把表格保留成 Markdown，再 embedding。
+适合 LLM 后续阅读。
+C. 行级 / 指标级 chunk
+对财务表特别有用：
+Company: NVIDIA
+Report: FY2026 Q3 10-Q
+Table: Consolidated Statements of Income
+Metric: Revenue
+Current period: 57,006 USD millions
+Prior period: 35,082 USD millions
+Page: 45
+
+适合回答：
+“英伟达最近季度收入是多少？”
+“同比增长多少？”
+“净利润是多少？”
+D. 结构化存储
+对数值型问题，最好不要只靠向量库。
+应该把核心表格另存一份：
+DuckDB / SQLite / Parquet / JSON
+
+字段类似：
+company
+ticker
+report_period
+statement_type
+metric
+value
+unit
+currency
+period
+page
+source_pdf
+
+这样对于明确数值查询，可以走结构化查询，而不是让向量库猜。
+4. 金融 RAG 最推荐的架构
+我建议你的项目升级成这样：
+PDF
+│
+├── Text Extractor
+│ └── paragraph chunks
+│
+├── Table Extractor
+│ ├── markdown table
+│ ├── csv/json dataframe
+│ ├── table summary
+│ └── row-level facts
+│
+├── Index Builder
+│ ├── BM25 index
+│ ├── vector index for text chunks
+│ ├── vector index for table summaries / table markdown
+│ └── structured table store
+│
+└── Query Router
+├── 普通解释类问题 → text RAG
+├── 指标/数字/同比/环比问题 → table-aware retrieval
+├── 明确财务指标问题 → structured query + citation
+└── 综合分析问题 → text + table hybrid
+
+核心思想：
+文本解释交给文本 RAG；财务数值交给表格 RAG / 结构化查询；最后由 LLM 汇总。
+5. 对你这个项目，我建议分三阶段做
+第一阶段：低成本改造，先保留表格结构
+目标：不要让表格继续被打散。
+
+可以在 pdf2md 里增加 table-aware extraction：
+
+优先试：
+pdfplumber
+PyMuPDF table extraction
+Camelot
+Tabula
+pymupdf4llm
+Docling
+Unstructured
+
+对你这个项目，我建议优先：
+pdfplumber + pymupdf4llm
+
+原因：
+研报/年报大多是数字 PDF，不一定是扫描件；
+pdfplumber 对表格边界、行列抽取比较实用；
+pymupdf4llm 可以输出更接近 Markdown 的结构；
+成本低，适合面试项目展示。
+输出时不要只生成 .md，建议同时生成：
+backend/app/data/raw/extracted/source-documents/*.md
+backend/app/data/raw/tables/*.json
+backend/app/data/raw/tables/*.csv
+backend/app/data/raw/_meta/table-manifest.json
+第二阶段：建立 table chunk 类型
+现在你的 chunk 大概率都是普通 text chunk。
+建议新增 chunk 类型：
+chunk_type:
+- text
+- table
+- table_row
+- table_summary
+
+表格 chunk metadata：
+company
+ticker
+doc_type
+report_period
+page
+table_id
+table_title
+statement_type
+unit
+currency
+row_count
+column_count
+source_pdf
+
+这样后面 retrieval / rerank / frontend 都能知道：
+“这不是普通文本，这是表格证据”。
+第三阶段：结构化财务指标库
+对于财报中的三大表：
+利润表
+资产负债表
+现金流量表
+
+建议额外抽成结构化 facts：
+company: NVIDIA
+ticker: NVDA
+period: FY2026Q3
+statement: income_statement
+metric: revenue
+value: 57006
+unit: USD millions
+page: 45
+source_pdf: ...
+
+然后用户问：
+英伟达最近季度收入是多少？
+系统不应该只靠 vector search。
+更稳的是：
+识别公司 = NVIDIA
+识别指标 = revenue
+识别时间 = latest quarter
+查询 structured facts
+返回数值 + 引用页码
+
+这就是金融 RAG 和普通文档 RAG 的区别。

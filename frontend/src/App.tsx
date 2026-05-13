@@ -7,6 +7,7 @@ import { Document, LibraryDocument, Message, RetrievalSnapshot } from './types';
 import { fetchDocuments, mapRerankResults, mapRetrievalResults, streamQuery } from './api/finrag';
 import { fetchRewritePreview, formatPreviewKeywords, PreviewRewriteResponse } from './api/preview';
 import { mockBM25Docs, mockLeftDocuments, mockRerankDocs, mockVectorDocs } from './data/mock';
+import { KnowledgeBaseManager } from './pages/KnowledgeBaseManager';
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -18,6 +19,13 @@ export default function App() {
   const queryAbortRef = useRef<AbortController | null>(null);
   const previewAbortRef = useRef<AbortController | null>(null);
   const previewTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [currentPage, setCurrentPage] = useState<'chat' | 'knowledge-base'>(() => window.location.hash === '#/knowledge-base' ? 'knowledge-base' : 'chat');
+
+  useEffect(() => {
+    const handleHashChange = () => setCurrentPage(window.location.hash === '#/knowledge-base' ? 'knowledge-base' : 'chat');
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -190,9 +198,13 @@ export default function App() {
   const activeSnapshot = activeAssistant?.retrievalSnapshot ?? defaultSnapshot();
   const activeSnapshotLabel = activeAssistant ? `当前显示：回答 ${assistantTurnNumber(messages, activeAssistant.id)}` : '当前显示：示例数据';
 
+  if (currentPage === 'knowledge-base') {
+    return <KnowledgeBaseManager onBackToChat={() => { window.location.hash = '#/chat'; setCurrentPage('chat'); }} />;
+  }
+
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-900 overflow-hidden font-sans">
-      <Header onReset={handleReset} />
+      <Header onReset={handleReset} onOpenKnowledgeBase={() => { window.location.hash = '#/knowledge-base'; setCurrentPage('knowledge-base'); }} />
       <main className="flex flex-1 overflow-hidden">
         <SidebarLeft documents={leftDocuments} onSelectExample={runRAGFlow} />
         <ChatArea 
