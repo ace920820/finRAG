@@ -2,29 +2,29 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Frontend Evidence Traceability & Interaction Polish
-current_phase: 8
-status: defining_phase_plan
+current_phase: null
+status: implementation_complete_ready_for_smoke_test
 last_updated: "2026-05-13T00:00:00.000Z"
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_phases: 3
+  total_plans: 3
+  completed_plans: 3
+  percent: 100
 ---
 
 # State: FinRAG
 
 **Initialized:** 2026-05-13
 **Current milestone:** v1.2 Frontend Evidence Traceability & Interaction Polish
-**Status:** Requirements and roadmap defined; Phase 8 is next.
+**Status:** Implementation complete; ready for manual smoke test.
 
 ## Current Position
 
-Phase: 8 — Real-Corpus Entry Points
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-05-13 — v1.2 milestone started from user-requested frontend/retrieval traceability improvements.
+Phase: Complete
+Plan: Phases 8-10 completed
+Status: Ready for manual smoke test
+Last activity: 2026-05-13 — Implemented v1.2 frontend evidence traceability and interaction polish.
 
 ## Completed Milestones
 
@@ -47,7 +47,7 @@ Last activity: 2026-05-13 — v1.2 milestone started from user-requested fronten
 
 ## Next Action
 
-Run `/gsd-plan-phase 8` to plan Real-Corpus Entry Points.
+Run manual smoke test for example questions, document opening, panel collapse, Rerank details, and per-turn traceability. Then run milestone completion if accepted.
 
 ## Archives
 

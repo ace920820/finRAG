@@ -3,20 +3,16 @@ import { Header } from './components/Header';
 import { SidebarLeft } from './components/SidebarLeft';
 import { ChatArea } from './components/ChatArea';
 import { SidebarRight } from './components/SidebarRight';
-import { Document, DocType, Message } from './types';
+import { Document, LibraryDocument, Message, RetrievalSnapshot } from './types';
 import { fetchDocuments, mapRerankResults, mapRetrievalResults, streamQuery } from './api/finrag';
 import { fetchRewritePreview, formatPreviewKeywords, PreviewRewriteResponse } from './api/preview';
 import { mockBM25Docs, mockLeftDocuments, mockRerankDocs, mockVectorDocs } from './data/mock';
 
-type LeftDocument = Array<{ id: string; title: string; type: DocType }>;
-
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeCitationId, setActiveCitationId] = useState<string | null>(null);
-  const [leftDocuments, setLeftDocuments] = useState<LeftDocument>(mockLeftDocuments);
-  const [bm25Docs, setBm25Docs] = useState<Document[]>(mockBM25Docs);
-  const [vectorDocs, setVectorDocs] = useState<Document[]>(mockVectorDocs);
-  const [rerankDocs, setRerankDocs] = useState<Document[]>(mockRerankDocs);
+  const [activeAssistantId, setActiveAssistantId] = useState<string | null>(null);
+  const [leftDocuments, setLeftDocuments] = useState<LibraryDocument[]>(mockLeftDocuments.map(doc => ({ ...doc, openUrl: '#' })));
   const [previewText, setPreviewText] = useState('宁德时代、CATL、300750、经营风险');
   const [previewLoading, setPreviewLoading] = useState(false);
   const queryAbortRef = useRef<AbortController | null>(null);
@@ -27,7 +23,7 @@ export default function App() {
     const controller = new AbortController();
     fetchDocuments(controller.signal)
       .then(setLeftDocuments)
-      .catch(() => setLeftDocuments(mockLeftDocuments));
+      .catch(() => setLeftDocuments(mockLibraryDocuments()));
     return () => controller.abort();
   }, []);
 
@@ -44,9 +40,6 @@ export default function App() {
     const controller = new AbortController();
     queryAbortRef.current = controller;
     setActiveCitationId(null);
-    setBm25Docs([]);
-    setVectorDocs([]);
-    setRerankDocs([]);
 
     const now = Date.now();
     const userMessage: Message = { id: `${now}`, role: 'user', content: query };
@@ -56,9 +49,11 @@ export default function App() {
       role: 'assistant',
       content: '',
       stage: 'query',
+      retrievalSnapshot: emptySnapshot(),
     };
 
     setMessages(prev => [...prev, userMessage, assistantMessage]);
+    setActiveAssistantId(assistantMsgId);
 
     try {
       await streamQuery(query, {
@@ -69,13 +64,26 @@ export default function App() {
           });
         },
         onRetrievalComplete: payload => {
-          setBm25Docs(mapRetrievalResults(payload.bm25_results));
-          setVectorDocs(mapRetrievalResults(payload.vector_results));
+          const bm25Docs = mapRetrievalResults(payload.bm25_results);
+          const vectorDocs = mapRetrievalResults(payload.vector_results);
           updateAssistant(assistantMsgId, { stage: 'retrieve' });
+          updateAssistant(assistantMsgId, message => ({
+            retrievalSnapshot: {
+              ...(message.retrievalSnapshot ?? emptySnapshot()),
+              bm25Docs,
+              vectorDocs,
+            },
+          }));
         },
         onRerankComplete: payload => {
-          setRerankDocs(mapRerankResults(payload.top5));
+          const rerankDocs = mapRerankResults(payload.top5);
           updateAssistant(assistantMsgId, { stage: 'rerank' });
+          updateAssistant(assistantMsgId, message => ({
+            retrievalSnapshot: {
+              ...(message.retrievalSnapshot ?? emptySnapshot()),
+              rerankDocs,
+            },
+          }));
         },
         onAnswerChunk: payload => {
           updateAssistant(assistantMsgId, message => ({
@@ -84,10 +92,14 @@ export default function App() {
           }));
         },
         onDone: payload => {
-          updateAssistant(assistantMsgId, {
+          updateAssistant(assistantMsgId, message => ({
             stage: 'done',
             tokens: payload.total_tokens,
-          });
+            retrievalSnapshot: {
+              ...(message.retrievalSnapshot ?? emptySnapshot()),
+              citations: payload.citations,
+            },
+          }));
         },
         onError: payload => {
           updateAssistant(assistantMsgId, {
@@ -158,12 +170,25 @@ export default function App() {
     if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
     setMessages([]);
     setActiveCitationId(null);
-    setBm25Docs(mockBM25Docs);
-    setVectorDocs(mockVectorDocs);
-    setRerankDocs(mockRerankDocs);
+    setActiveAssistantId(null);
     setPreviewText('宁德时代、CATL、300750、经营风险');
     setPreviewLoading(false);
   };
+
+  const handleAssistantSelect = (messageId: string) => {
+    setActiveAssistantId(messageId);
+    setActiveCitationId(null);
+  };
+
+  const handleCitationClick = (messageId: string, citationId: string) => {
+    setActiveAssistantId(messageId);
+    setActiveCitationId(prev => (activeAssistantId === messageId && prev === citationId ? null : citationId));
+  };
+
+  const activeAssistant = [...messages].reverse().find(message => message.role === 'assistant' && message.id === activeAssistantId)
+    ?? [...messages].reverse().find(message => message.role === 'assistant');
+  const activeSnapshot = activeAssistant?.retrievalSnapshot ?? defaultSnapshot();
+  const activeSnapshotLabel = activeAssistant ? `当前显示：回答 ${assistantTurnNumber(messages, activeAssistant.id)}` : '当前显示：示例数据';
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-900 overflow-hidden font-sans">
@@ -174,20 +199,37 @@ export default function App() {
           messages={messages} 
           onSendMessage={runRAGFlow} 
           activeCitationId={activeCitationId}
-          onCitationClick={(id) => {
-            setActiveCitationId(prev => prev === id ? null : id);
-          }}
+          activeAssistantId={activeAssistant?.id ?? null}
+          onAssistantSelect={handleAssistantSelect}
+          onCitationClick={handleCitationClick}
           onPreviewChange={handlePreviewChange}
           previewText={previewText}
           previewLoading={previewLoading}
         />
         <SidebarRight 
-          bm25Docs={bm25Docs}
-          vectorDocs={vectorDocs}
-          rerankDocs={rerankDocs}
+          bm25Docs={activeSnapshot.bm25Docs}
+          vectorDocs={activeSnapshot.vectorDocs}
+          rerankDocs={activeSnapshot.rerankDocs}
           activeCitationId={activeCitationId}
+          activeSnapshotLabel={activeSnapshotLabel}
         />
       </main>
     </div>
   );
+}
+
+function emptySnapshot(): RetrievalSnapshot {
+  return { bm25Docs: [], vectorDocs: [], rerankDocs: [] };
+}
+
+function defaultSnapshot(): RetrievalSnapshot {
+  return { bm25Docs: mockBM25Docs, vectorDocs: mockVectorDocs, rerankDocs: mockRerankDocs };
+}
+
+function mockLibraryDocuments(): LibraryDocument[] {
+  return mockLeftDocuments.map(doc => ({ ...doc, openUrl: '#' }));
+}
+
+function assistantTurnNumber(messages: Message[], messageId: string): number {
+  return messages.filter(message => message.role === 'assistant').findIndex(message => message.id === messageId) + 1;
 }

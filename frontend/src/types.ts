@@ -9,7 +9,24 @@ export interface Document {
   source: string;
   score: number;
   contentSnippet?: string;
+  fullContent?: string;
   isHigh?: boolean;
+}
+
+export interface LibraryDocument {
+  id: string;
+  title: string;
+  type: DocType;
+  openUrl: string;
+  company?: string;
+  date?: string;
+}
+
+export interface RetrievalSnapshot {
+  bm25Docs: Document[];
+  vectorDocs: Document[];
+  rerankDocs: Document[];
+  citations?: Record<string, unknown>;
 }
 
 export interface Message {
@@ -20,4 +37,5 @@ export interface Message {
   queryRewrite?: string[];
   duration?: Record<MessageStage, number>;
   tokens?: number;
+  retrievalSnapshot?: RetrievalSnapshot;
 }

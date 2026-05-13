@@ -1,7 +1,7 @@
 # Roadmap: FinRAG v1.2 Frontend Evidence Traceability & Interaction Polish
 
 **Last updated:** 2026-05-13
-**Current status:** v1.2 defined; execution not started.
+**Current status:** v1.2 implementation complete; ready for user smoke test.
 
 ## Shipped Milestones
 
@@ -18,9 +18,9 @@ Goal: Make the real-corpus demo easier to navigate and fully traceable across mu
 
 | Phase | Name | Requirements | Goal | Validation |
 | --- | --- | --- | --- | --- |
-| 8 | Real-Corpus Entry Points | REQ-v1.2-001, REQ-v1.2-002, REQ-v1.2-008 | Update example questions and make document library entries open their source/readable document. | Clicking examples starts relevant queries; clicking documents opens the correct source/view; frontend checks pass. |
-| 9 | Retrieval Sidebar Interaction Polish | REQ-v1.2-003, REQ-v1.2-004, REQ-v1.2-005, REQ-v1.2-008 | Make retrieval panels independently collapsible and improve Rerank detail/score rendering. | All panels can be closed; Rerank item click expands evidence text; scores render consistently. |
-| 10 | Per-Turn Evidence Traceability | REQ-v1.2-006, REQ-v1.2-007, REQ-v1.2-008 | Store and restore retrieval/citation snapshots per assistant turn. | Older answers restore their own retrieval results; old citations resolve to original evidence after later queries. |
+| 8 | Real-Corpus Entry Points | REQ-v1.2-001, REQ-v1.2-002, REQ-v1.2-008 | Update example questions and make document library entries open their source/readable document. | ✓ Complete |
+| 9 | Retrieval Sidebar Interaction Polish | REQ-v1.2-003, REQ-v1.2-004, REQ-v1.2-005, REQ-v1.2-008 | Make retrieval panels independently collapsible and improve Rerank detail/score rendering. | ✓ Complete |
+| 10 | Per-Turn Evidence Traceability | REQ-v1.2-006, REQ-v1.2-007, REQ-v1.2-008 | Store and restore retrieval/citation snapshots per assistant turn. | ✓ Complete |
 
 ## Phase Details
 
@@ -70,4 +70,4 @@ Goal: Make the real-corpus demo easier to navigate and fully traceable across mu
 
 ## Next Action
 
-Plan Phase 8 with `/gsd-plan-phase 8`.
+Run manual frontend smoke test for v1.2 interactions, then complete the milestone.

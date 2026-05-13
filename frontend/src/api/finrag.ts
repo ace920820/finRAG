@@ -1,4 +1,4 @@
-import { Document, DocType } from '../types';
+import { Document, DocType, LibraryDocument } from '../types';
 
 export type BackendDocType = 'financial_report' | 'research_report' | 'news';
 export type QueryIntent = 'factual' | 'analytical' | 'reasoning';
@@ -10,6 +10,7 @@ export interface BackendDocumentListItem {
   company: string;
   date: string;
   chunk_count: number;
+  source?: string | null;
 }
 
 export interface BackendDocumentListResponse {
@@ -111,7 +112,7 @@ const DOC_TYPE_MAP: Record<BackendDocType, DocType> = {
   news: '新闻',
 };
 
-export async function fetchDocuments(signal?: AbortSignal): Promise<Array<{ id: string; title: string; type: DocType }>> {
+export async function fetchDocuments(signal?: AbortSignal): Promise<LibraryDocument[]> {
   const response = await fetch('/api/documents', { signal });
   if (!response.ok) {
     throw new Error(`文档列表加载失败：${response.status}`);
@@ -180,11 +181,14 @@ export function mapDocType(docType: BackendDocType): DocType {
   return DOC_TYPE_MAP[docType] ?? '新闻';
 }
 
-function mapDocumentListItem(item: BackendDocumentListItem): { id: string; title: string; type: DocType } {
+function mapDocumentListItem(item: BackendDocumentListItem): LibraryDocument {
   return {
     id: item.doc_id,
     title: item.title,
     type: mapDocType(item.doc_type),
+    company: item.company,
+    date: item.date,
+    openUrl: `/api/documents/${encodeURIComponent(item.doc_id)}/view`,
   };
 }
 

@@ -39,4 +39,5 @@ def document_list_item_from_document(document: Document, chunk_count: int) -> Do
         company=document.company,
         date=document.date,
         chunk_count=chunk_count,
+        source=document.source,
     )

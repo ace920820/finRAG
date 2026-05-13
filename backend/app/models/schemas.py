@@ -36,6 +36,7 @@ class DocumentListItem(BaseModel):
     company: str
     date: str
     chunk_count: int
+    source: Optional[str] = None
 
 
 class DocumentListResponse(BaseModel):

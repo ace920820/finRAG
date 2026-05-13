@@ -8,13 +8,15 @@ interface ChatAreaProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
   activeCitationId: string | null;
-  onCitationClick: (id: string) => void;
+  activeAssistantId: string | null;
+  onAssistantSelect: (messageId: string) => void;
+  onCitationClick: (messageId: string, citationId: string) => void;
   onPreviewChange?: (value: string) => void;
   previewText?: string;
   previewLoading?: boolean;
 }
 
-export function ChatArea({ messages, onSendMessage, activeCitationId, onCitationClick, onPreviewChange, previewText, previewLoading }: ChatAreaProps) {
+export function ChatArea({ messages, onSendMessage, activeCitationId, activeAssistantId, onAssistantSelect, onCitationClick, onPreviewChange, previewText, previewLoading }: ChatAreaProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,7 +80,10 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, onCitation
             ) : (
               <>
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 text-white font-bold">AI</div>
-                <div className="flex-1 space-y-4">
+                <div
+                  className={clsx('flex-1 space-y-4 rounded-xl p-1 transition-colors cursor-pointer', activeAssistantId === msg.id && 'bg-blue-50/40')}
+                  onClick={() => onAssistantSelect(msg.id)}
+                >
                 {/* Stages tracking */}
                 {msg.stage && msg.stage !== 'idle' && (
                   <div className="space-y-3">
@@ -137,7 +142,10 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, onCitation
                               return (
                                 <span 
                                   className={clsx("inline-flex items-center justify-center w-4 h-4 text-[9px] rounded cursor-pointer font-bold mx-0.5", isActive ? "bg-blue-600 text-white" : "bg-blue-100 text-blue-600 hover:bg-blue-200")} 
-                                  onClick={() => onCitationClick(id)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    onCitationClick(msg.id, id);
+                                  }}
                                   {...props}
                                 >
                                   {children}
