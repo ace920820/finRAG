@@ -5,6 +5,12 @@ from pathlib import Path
 from typing import Any, Iterable
 
 
+try:
+    import fitz
+except Exception:  # pragma: no cover - PyMuPDF is expected to exist in the backend env
+    fitz = None
+
+
 @dataclass(frozen=True)
 class RawDocument:
     path: Path
@@ -26,7 +32,7 @@ def discover_raw_inputs(raw_root: Path, collection_name: str | None = None, sour
                 continue
             if path.name.startswith("._"):
                 continue
-            if path.suffix.lower() not in {".md", ".txt"}:
+            if path.suffix.lower() not in {".md", ".txt", ".pdf"}:
                 continue
             paths.append(path)
     return sorted(set(paths), key=lambda item: item.as_posix())
@@ -37,8 +43,12 @@ def load_raw_documents(raw_root: Path, collection_name: str | None = None, sourc
 
 
 def parse_raw_document(path: Path, collection_name: str | None = None) -> RawDocument:
-    text = path.read_text(encoding="utf-8")
-    frontmatter, body = _split_frontmatter(text) if path.suffix.lower() == ".md" else ({}, text)
+    if path.suffix.lower() == ".pdf":
+        text = _extract_pdf_text(path)
+        frontmatter, body = {}, text
+    else:
+        text = path.read_text(encoding="utf-8")
+        frontmatter, body = _split_frontmatter(text) if path.suffix.lower() == ".md" else ({}, text)
     body = _extract_body_text(body)
     title = _title_from_metadata(path, frontmatter, body)
     return RawDocument(
@@ -112,3 +122,18 @@ def _unquote(value: str) -> str:
     if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
         return value[1:-1].replace('\\"', '"').replace('\\\\', '\\')
     return value
+
+
+def _extract_pdf_text(path: Path) -> str:
+    if fitz is None:
+        raise RuntimeError("PyMuPDF is required to read PDF inputs")
+    lines: list[str] = []
+    with fitz.open(path) as document:
+        for page_index, page in enumerate(document, start=1):
+            page_text = (page.get_text("text") or "").strip()
+            if not page_text:
+                continue
+            lines.append(f"<!-- page: {page_index} -->")
+            lines.append(page_text)
+            lines.append("")
+    return "\n".join(lines).strip()

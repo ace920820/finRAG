@@ -74,3 +74,21 @@ def test_bailian_rerank_provider_uses_dashscope_rerank_endpoint(monkeypatch):
     assert captured['headers']['Authorization'] == 'Bearer test-key'
     assert results[0].score == 0.9
     assert results[0].metadata['index'] == 1
+
+
+def test_vector_search_uses_active_embedding_provider(monkeypatch):
+    from app.core.retrieval.vector_store import VectorStore
+    from app.models.schemas import Chunk
+
+    class ActiveProvider:
+        def embed_texts(self, texts):
+            return [[0.0, 1.0] for _ in texts]
+
+    chunk = Chunk(chunk_id='c1', doc_id='d1', section='s', chunk_index=0, content='hello', metadata={})
+    store = VectorStore([chunk], [[0.0, 1.0]])
+    monkeypatch.setattr('app.core.retrieval.vector_store.build_embedding_provider', lambda: ActiveProvider())
+
+    results = store.search('query')
+
+    assert results[0].chunk_id == 'c1'
+    assert results[0].score == 1.0

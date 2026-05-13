@@ -7,8 +7,7 @@ from typing import Optional, Dict, List, Sequence
 
 import numpy as np
 
-from app.core.config import get_settings
-from app.core.providers.embeddings import MockEmbeddingProvider
+from app.core.providers.embeddings import MockEmbeddingProvider, build_embedding_provider
 from app.models.schemas import Chunk
 
 
@@ -62,10 +61,15 @@ class VectorStore:
     def search(self, query: str, top_k: int = 20, embedding_provider=None) -> List[VectorResult]:
         if not self.chunks or self.vectors.size == 0:
             return []
-        provider = embedding_provider or MockEmbeddingProvider()
+        provider = embedding_provider or build_embedding_provider()
         query_vector = np.asarray(provider.embed_texts([query])[0], dtype=float)
         if query_vector.size == 0:
             return []
+        if query_vector.size != self.vectors.shape[1]:
+            raise ValueError(
+                f"Query embedding dimension {query_vector.size} does not match index dimension {self.vectors.shape[1]}. "
+                "Rebuild the vector index with the active embedding provider."
+            )
         query_norm = np.linalg.norm(query_vector)
         if query_norm == 0:
             query_norm = 1.0

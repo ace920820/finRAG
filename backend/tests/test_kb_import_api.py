@@ -206,3 +206,106 @@ def test_markdown_import_merges_with_existing_corpus(client, tmp_path, monkeypat
 
     get_settings.cache_clear()
     _processed_dir.cache_clear()
+
+
+def test_import_rejects_paths_outside_data_dir(client, tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    processed_dir = data_dir / "processed"
+    monkeypatch.setenv("FINRAG_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("FINRAG_PROCESSED_DATA_DIR", str(processed_dir))
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+    response = client.post(
+        "/api/kb/import",
+        json={"collection_name": "demo", "processed_dir": str(tmp_path / "outside")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "failed"
+    assert "processed_dir must stay" in response.json()["error_messages"][0]
+
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+
+def test_document_disable_and_reimport_persist_status(client, tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    processed_dir = data_dir / "processed"
+    processed_dir.mkdir(parents=True)
+    document = {
+        "doc_id": "doc-existing",
+        "company": "ExistingCo",
+        "company_aliases": [],
+        "doc_type": "research_report",
+        "title": "Existing Report",
+        "date": "2026-05-13",
+        "source": "existing.md",
+        "content": "existing content",
+    }
+    chunk = {
+        "chunk_id": "chunk-existing",
+        "doc_id": "doc-existing",
+        "section": "Existing",
+        "page_num": None,
+        "chunk_index": 0,
+        "content": "existing content",
+        "metadata": {"collection": "demo"},
+    }
+    (processed_dir / "documents.json").write_text(json.dumps([document]), encoding="utf-8")
+    (processed_dir / "chunks.json").write_text(json.dumps([chunk]), encoding="utf-8")
+    monkeypatch.setenv("FINRAG_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("FINRAG_PROCESSED_DATA_DIR", str(processed_dir))
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+    delete_response = client.delete("/api/kb/documents/doc-existing")
+    assert delete_response.status_code == 200
+    assert delete_response.json()["status"] == "disabled"
+    detail = client.get("/api/kb/documents/doc-existing").json()
+    assert detail["status"] == "disabled"
+    disabled = client.get("/api/kb/documents?status=disabled").json()
+    assert disabled["total"] == 1
+
+    reimport_response = client.post("/api/kb/documents/doc-existing/reimport")
+    assert reimport_response.status_code == 200
+    assert client.get("/api/kb/documents/doc-existing").json()["status"] == "active"
+
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+
+def test_pdf_upload_imports_text_layer(client, tmp_path, monkeypatch):
+    fitz = __import__('fitz')
+    data_dir = tmp_path / "data"
+    processed_dir = data_dir / "processed"
+    monkeypatch.setenv("FINRAG_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("FINRAG_PROCESSED_DATA_DIR", str(processed_dir))
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()
+
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Demo PDF revenue 57,006")
+    pdf_bytes = document.tobytes()
+    document.close()
+
+    upload_response = client.post(
+        "/api/kb/upload",
+        data={"collection_name": "pdf-demo"},
+        files=[("files", ("demo.pdf", pdf_bytes, "application/pdf"))],
+    )
+    assert upload_response.status_code == 200
+
+    import_response = client.post("/api/kb/import", json={"collection_name": "pdf-demo", "default_company": "PDFCo"})
+
+    assert import_response.status_code == 200
+    assert import_response.json()["status"] == "completed"
+    documents = json.loads((processed_dir / "documents.json").read_text(encoding="utf-8"))
+    chunks = json.loads((processed_dir / "chunks.json").read_text(encoding="utf-8"))
+    assert documents[0]["source"] == "demo.pdf"
+    assert documents[0]["company"] == "PDFCo"
+    assert "Demo PDF revenue" in chunks[0]["content"]
+
+    get_settings.cache_clear()
+    _processed_dir.cache_clear()

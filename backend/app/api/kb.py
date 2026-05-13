@@ -31,6 +31,7 @@ router = APIRouter(prefix="/api/kb", tags=["knowledge-base"])
 DocumentStatus = Literal["active", "disabled", "failed"]
 ALLOWED_UPLOAD_SUFFIXES = {".pdf", ".md", ".txt"}
 JOBS: dict[str, "ImportJobState"] = {}
+KB_STATE_FILENAME = "kb_state.json"
 
 
 @dataclass
@@ -90,6 +91,7 @@ def get_kb_document(doc_id: str) -> KBDocumentDetail:
     if first_chunk:
         source_path = str(first_chunk.metadata.get("source_path") or "")
         collection_name = str(first_chunk.metadata.get("collection") or "default")
+    status, error_message = _load_document_state(doc_id)
     return KBDocumentDetail(
         doc_id=document.doc_id,
         title=document.title,
@@ -99,9 +101,9 @@ def get_kb_document(doc_id: str) -> KBDocumentDetail:
         source=document.source,
         source_path=source_path,
         chunk_count=len(chunks),
-        status="active",
+        status=status,
         collection_name=collection_name,
-        error_message=None,
+        error_message=error_message,
         chunks=[
             KBChunkSummary(
                 chunk_id=chunk.chunk_id,
@@ -146,9 +148,10 @@ def start_import(request: KBImportRequest) -> KBImportJobResponse:
         source_dir = Path(request.source_dir) if request.source_dir else None
         raw_root = get_settings().data_dir / "raw"
         processed_dir = Path(request.processed_dir) if request.processed_dir else get_settings().processed_dir
+        _validate_request_paths(raw_root=raw_root, processed_dir=processed_dir, source_dir=source_dir)
         readable_inputs = discover_raw_inputs(raw_root=raw_root, collection_name=request.collection_name, source_dir=source_dir)
         if not readable_inputs:
-            raise ValueError("No importable Markdown/TXT files found. PDF files must be extracted to Markdown with pdf2md before importing.")
+            raise ValueError("No importable Markdown/TXT/PDF files found.")
         import_dir = processed_dir / ".tmp_import" / job.job_id
         result = import_corpus(
             raw_root=raw_root,
@@ -162,6 +165,7 @@ def start_import(request: KBImportRequest) -> KBImportJobResponse:
             ),
         )
         _merge_processed_records(processed_dir, result.documents_path, result.chunks_path)
+        _write_state(processed_dir, request.collection_name, result.documents)
         job.total_files = len(result.documents)
         job.success_count = len(result.documents)
         job.fail_count = 0
@@ -208,6 +212,7 @@ def reimport_document(doc_id: str) -> KBImportJobResponse:
     job.success_count = 1
     job.reindex_status = "not_requested"
     JOBS[job.job_id] = job
+    _update_document_state(document.doc_id, status="active", error_message=None)
     return _job_response(job)
 
 
@@ -215,6 +220,7 @@ def reimport_document(doc_id: str) -> KBImportJobResponse:
 def disable_document(doc_id: str) -> dict[str, str]:
     if not any(item.doc_id == doc_id for item in load_documents()):
         raise HTTPException(status_code=404, detail="Document not found")
+    _update_document_state(doc_id, status="disabled", error_message=None)
     return {"doc_id": doc_id, "status": "disabled"}
 
 
@@ -226,6 +232,7 @@ def _document_item(document, chunk_count: int) -> KBDocumentListItem:
             source_path = str(chunk.metadata.get("source_path") or "")
             collection_name = str(chunk.metadata.get("collection") or "default")
             break
+    status, error_message = _load_document_state(document.doc_id)
     return KBDocumentListItem(
         doc_id=document.doc_id,
         title=document.title,
@@ -235,9 +242,9 @@ def _document_item(document, chunk_count: int) -> KBDocumentListItem:
         source=document.source,
         source_path=source_path,
         chunk_count=chunk_count,
-        status="active",
+        status=status,
         collection_name=collection_name,
-        error_message=None,
+        error_message=error_message,
     )
 
 
@@ -321,6 +328,67 @@ def _merge_processed_records(processed_dir: Path, imported_documents_path: Path,
     merged_chunks.extend(imported_chunks)
     existing_documents_path.write_text(json.dumps(list(merged_documents.values()), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     existing_chunks_path.write_text(json.dumps(merged_chunks, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _write_state(processed_dir: Path, collection_name: str, documents) -> None:
+    import json
+
+    state_path = processed_dir / KB_STATE_FILENAME
+    state = _read_state(state_path)
+    for document in documents:
+        state[document.doc_id] = {
+            "status": "active",
+            "error_message": None,
+            "collection_name": collection_name,
+        }
+    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _update_document_state(doc_id: str, *, status: str, error_message: Optional[str]) -> None:
+    import json
+
+    settings = get_settings()
+    processed_dir = settings.processed_dir
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    state_path = processed_dir / KB_STATE_FILENAME
+    state = _read_state(state_path)
+    current = state.get(doc_id, {})
+    state[doc_id] = {
+        **current,
+        "status": status,
+        "error_message": error_message,
+    }
+    state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def _read_state(path: Path) -> dict[str, dict]:
+    import json
+
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload if isinstance(payload, dict) else {}
+
+
+def _load_document_state(doc_id: str) -> tuple[str, Optional[str]]:
+    state = _read_state(get_settings().processed_dir / KB_STATE_FILENAME)
+    entry = state.get(doc_id, {})
+    return str(entry.get("status") or "active"), entry.get("error_message")
+
+
+def _validate_request_paths(*, raw_root: Path, processed_dir: Path, source_dir: Optional[Path]) -> None:
+    resolved_raw = raw_root.resolve()
+    resolved_processed = processed_dir.resolve()
+    resolved_root = get_settings().data_dir.resolve()
+    try:
+        resolved_processed.relative_to(resolved_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="processed_dir must stay under the configured data directory") from exc
+    if source_dir is not None:
+        try:
+            source_dir.resolve().relative_to(resolved_raw)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="source_dir must stay under backend/app/data/raw") from exc
 
 
 def _read_json_list(path: Path) -> list[dict]:
