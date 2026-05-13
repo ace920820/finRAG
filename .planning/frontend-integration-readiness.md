@@ -132,3 +132,9 @@ Fallback behavior:
 - Document library falls back to `mockLeftDocuments` if backend document loading fails.
 - Retrieval panels reset at query start and repopulate as backend events arrive.
 - Query fetch/SSE failures produce an assistant error message instead of crashing the UI.
+
+## Phase 5 Preview Enhancement
+
+- `POST /api/preview-rewrite` is now available for typing preview.
+- Preview requests should be debounced and abortable.
+- The preview area in `ChatArea` is wired to backend rewrite data while the main SSE flow remains unchanged.

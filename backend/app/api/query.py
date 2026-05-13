@@ -5,7 +5,6 @@ from fastapi.responses import StreamingResponse
 
 from app.core.agent.workflow import QueryWorkflow
 from app.core.sse import format_sse_error, format_sse_event, format_sse_ping, split_markdown_chunks
-from app.models.events import ErrorEvent, PingEvent
 from app.models.schemas import QueryRequest
 
 router = APIRouter(prefix="/api", tags=["query"])

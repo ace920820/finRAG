@@ -2,16 +2,19 @@ import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import clsx from 'clsx';
-import { Message, MessageStage } from '../types';
+import { Message } from '../types';
 
 interface ChatAreaProps {
   messages: Message[];
   onSendMessage: (content: string) => void;
   activeCitationId: string | null;
   onCitationClick: (id: string) => void;
+  onPreviewChange?: (value: string) => void;
+  previewText?: string;
+  previewLoading?: boolean;
 }
 
-export function ChatArea({ messages, onSendMessage, activeCitationId, onCitationClick }: ChatAreaProps) {
+export function ChatArea({ messages, onSendMessage, activeCitationId, onCitationClick, onPreviewChange, previewText, previewLoading }: ChatAreaProps) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -25,10 +28,11 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, onCitation
   }, [messages]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
+    const value = e.target.value;
+    setInput(value);
+    onPreviewChange?.(value);
     
-    // Simulate query rewrite preview after 500ms
-    if (e.target.value.trim() !== '') {
+    if (value.trim() !== '') {
       setIsTyping(true);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
@@ -40,15 +44,19 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, onCitation
     }
   };
 
+  const submitInput = () => {
+    if (!input.trim()) return;
+    onSendMessage(input.trim());
+    setInput('');
+    onPreviewChange?.('');
+    setIsTyping(false);
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (input.trim()) {
-        onSendMessage(input.trim());
-        setInput('');
-        setIsTyping(false);
-        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      }
+      submitInput();
     }
   };
 
@@ -183,12 +191,7 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, onCitation
           <div className="absolute right-2 bottom-2 flex items-center gap-2">
             <span className="text-[10px] text-slate-400">Enter 发送</span>
             <button 
-              onClick={() => {
-                if (input.trim()) {
-                  onSendMessage(input.trim());
-                  setInput('');
-                }
-              }}
+              onClick={submitInput}
               disabled={!input.trim()}
               className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
             >
@@ -199,7 +202,7 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, onCitation
         
         {showRewritePreview ? (
           <div className="max-w-3xl mx-auto mt-2 text-[10px] text-blue-500 font-mono min-h-[16px]">
-            检索关键词预览：宁德时代、CATL、300750、经营风险
+            {previewLoading ? '正在分析输入...' : `检索关键词预览：${previewText || '暂无预览'}`}
           </div>
         ) : (
           <div className="max-w-3xl mx-auto mt-2 text-[10px] text-slate-400 font-mono min-h-[16px]">

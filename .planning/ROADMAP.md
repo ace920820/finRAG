@@ -12,7 +12,7 @@
 | 2 | Hybrid Retrieval And Rerank | Build BM25/vector retrieval, RRF fusion, rerank Top 5, and degradation path. | RETR-01..06, API-04, API-05 | no | Pending |
 | 3 | Agent Workflow And SSE Query API | Orchestrate rewrite, retrieval, rerank, intent, LLM streaming, citations, errors, and heartbeat events. | AGNT-01..06, API-02, API-03, API-06..09 | no | Complete |
 | 4 | Integration And Demo Hardening | Validate imported React frontend against contract and stabilize three demo scenarios with fallbacks. | INTG-01..08 | yes | Complete |
-| 5 | P1 Enhancements | Add optional rewrite preview and polish financial-specific quality improvements as time allows. | API-10, selected v2 quality items | partial | Pending |
+| 5 | P1 Enhancements | Add optional rewrite preview and polish financial-specific quality improvements as time allows. | API-10, selected v2 quality items | partial | Complete |
 
 ## Phase Details
 
@@ -105,4 +105,4 @@
 - Frontend UI design intentionally excluded from phase goals except integration validation.
 
 ---
-*Last updated: 2026-05-13 after phase 4 frontend-backend integration*
+*Last updated: 2026-05-13 after phase 5 completion*

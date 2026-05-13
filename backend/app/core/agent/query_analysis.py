@@ -40,6 +40,19 @@ def classify_intent(query: str) -> QueryIntent:
     return "analytical"
 
 
+def detect_entities(query: str) -> List[str]:
+    entities: List[str] = []
+    if "贵州茅台" in query or "茅台" in query or "600519" in query:
+        entities.append("贵州茅台")
+    if "宁德时代" in query or "CATL" in query or "300750" in query:
+        entities.append("宁德时代")
+    if "美联储" in query or "加息" in query:
+        entities.append("美联储")
+    if "新能源" in query or "动力电池" in query:
+        entities.append("新能源板块")
+    return _unique(entities)
+
+
 def _expand_terms(query: str) -> List[str]:
     terms: List[str] = []
     for alias, expansions in _COMPANY_ALIASES.items():

@@ -5,6 +5,7 @@ import { ChatArea } from './components/ChatArea';
 import { SidebarRight } from './components/SidebarRight';
 import { Document, DocType, Message } from './types';
 import { fetchDocuments, mapRerankResults, mapRetrievalResults, streamQuery } from './api/finrag';
+import { fetchRewritePreview, formatPreviewKeywords, PreviewRewriteResponse } from './api/preview';
 import { mockBM25Docs, mockLeftDocuments, mockRerankDocs, mockVectorDocs } from './data/mock';
 
 type LeftDocument = Array<{ id: string; title: string; type: DocType }>;
@@ -16,7 +17,11 @@ export default function App() {
   const [bm25Docs, setBm25Docs] = useState<Document[]>(mockBM25Docs);
   const [vectorDocs, setVectorDocs] = useState<Document[]>(mockVectorDocs);
   const [rerankDocs, setRerankDocs] = useState<Document[]>(mockRerankDocs);
+  const [previewText, setPreviewText] = useState('宁德时代、CATL、300750、经营风险');
+  const [previewLoading, setPreviewLoading] = useState(false);
   const queryAbortRef = useRef<AbortController | null>(null);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const previewTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -83,9 +88,6 @@ export default function App() {
             stage: 'done',
             tokens: payload.total_tokens,
           });
-          if (queryAbortRef.current === controller) {
-            queryAbortRef.current = null;
-          }
         },
         onError: payload => {
           updateAssistant(assistantMsgId, {
@@ -108,13 +110,59 @@ export default function App() {
     }
   };
 
+  const requestPreview = async (value: string) => {
+    previewAbortRef.current?.abort();
+    const controller = new AbortController();
+    previewAbortRef.current = controller;
+    if (!value.trim()) {
+      setPreviewText('');
+      setPreviewLoading(false);
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const payload: PreviewRewriteResponse = await fetchRewritePreview(value, controller.signal);
+      if (controller.signal.aborted) return;
+      setPreviewText(formatPreviewKeywords(payload));
+    } catch {
+      if (!controller.signal.aborted) {
+        setPreviewText('');
+      }
+    } finally {
+      if (previewAbortRef.current === controller) {
+        previewAbortRef.current = null;
+      }
+      if (!controller.signal.aborted) {
+        setPreviewLoading(false);
+      }
+    }
+  };
+
+  const handlePreviewChange = (value: string) => {
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
+    if (!value.trim()) {
+      previewAbortRef.current?.abort();
+      setPreviewText('');
+      setPreviewLoading(false);
+      return;
+    }
+    setPreviewLoading(true);
+    previewTimerRef.current = setTimeout(() => {
+      void requestPreview(value);
+    }, 500);
+  };
+
   const handleReset = () => {
     queryAbortRef.current?.abort();
+    previewAbortRef.current?.abort();
+    if (previewTimerRef.current) clearTimeout(previewTimerRef.current);
     setMessages([]);
     setActiveCitationId(null);
     setBm25Docs(mockBM25Docs);
     setVectorDocs(mockVectorDocs);
     setRerankDocs(mockRerankDocs);
+    setPreviewText('宁德时代、CATL、300750、经营风险');
+    setPreviewLoading(false);
   };
 
   return (
@@ -129,6 +177,9 @@ export default function App() {
           onCitationClick={(id) => {
             setActiveCitationId(prev => prev === id ? null : id);
           }}
+          onPreviewChange={handlePreviewChange}
+          previewText={previewText}
+          previewLoading={previewLoading}
         />
         <SidebarRight 
           bm25Docs={bm25Docs}

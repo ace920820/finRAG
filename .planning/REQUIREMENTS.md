@@ -49,7 +49,7 @@
 - [x] **API-07**: SSE `done` event includes latency, token count, and citation metadata.
 - [x] **API-08**: SSE `error` event includes machine-readable code and user-facing message.
 - [x] **API-09**: SSE heartbeat sends `ping` at least every 15 seconds during long-running queries.
-- [ ] **API-10**: Optional `POST /api/preview-rewrite` returns expanded terms and detected entities.
+- [x] **API-10**: Optional `POST /api/preview-rewrite` returns expanded terms and detected entities.
 
 ### Integration And Demo
 
@@ -69,7 +69,7 @@
 - **QUAL-01**: Lightweight numeric consistency check flags answer numbers not present in retrieved chunks.
 - **QUAL-02**: Entity extraction stores mentioned companies in chunk metadata.
 - **QUAL-03**: Time-sensitive rerank applies configurable recency decay.
-- **QUAL-04**: Frontend query rewrite preview is fully enabled and debounced.
+- **QUAL-04**: Frontend query rewrite preview is fully enabled and debounced. *(Implemented in Phase 5)*
 
 ### Future Architecture
 
@@ -121,7 +121,7 @@
 | API-07 | Phase 3 | Complete |
 | API-08 | Phase 3 | Complete |
 | API-09 | Phase 3 | Complete |
-| API-10 | Phase 5 | Pending |
+| API-10 | Phase 5 | Complete |
 | INTG-01 | Phase 4 | Complete |
 | INTG-02 | Phase 4 | Complete |
 | INTG-03 | Phase 4 | Complete |
@@ -138,4 +138,4 @@
 
 ---
 *Requirements defined: 2026-05-13*  
-*Last updated: 2026-05-13 after phase 4 completion*
+*Last updated: 2026-05-13 after phase 5 completion*
