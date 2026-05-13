@@ -52,13 +52,23 @@ def query(request: QueryRequest) -> StreamingResponse:
                 logger.info("rerank started candidates=%d", len(retrieval_result.fused_top20))
                 rerank_result = RerankService().rerank(request.query, retrieval_result.fused_top20)
                 logger.info("rerank complete top=%d degraded=%s", len(rerank_result.top5), rerank_result.degraded)
-                rerank = RerankCompleteEvent(top5=rerank_result.top5)
+                rerank = RerankCompleteEvent(
+                    top5=rerank_result.top5,
+                    degraded=rerank_result.degraded,
+                    fallback_reason=rerank_result.fallback_reason,
+                    score_source=rerank_result.score_source,
+                )
                 evidence = rerank_result.top5
                 yield format_sse_event("rerank_complete", rerank)
             except Exception as exc:
                 logger.exception("retrieval/rerank degraded")
                 yield format_sse_event("retrieval_complete", retrieval)
-                yield format_sse_event("rerank_complete", rerank)
+                yield format_sse_event("rerank_complete", RerankCompleteEvent(
+                    top5=rerank.top5,
+                    degraded=True,
+                    fallback_reason=str(exc),
+                    score_source="hybrid_fusion",
+                ))
                 yield format_sse_error("RETRIEVAL_DEGRADED", str(exc))
 
             logger.info("generation started evidence=%d", len(evidence))

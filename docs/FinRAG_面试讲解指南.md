@@ -281,14 +281,16 @@ backend/app/data/index/
 - `RerankService.rerank(query, candidates)` 将 fused candidates 送给 rerank provider。
 - 默认 `MockRerankProvider` 用 query/document 字符重叠 + hash 稳定分数。
 - 支持 `BailianRerankProvider`，但需要环境变量和真实 API。
-- 如果 rerank provider 失败，会 fallback 到 fused Top5，并设置 `degraded=True`。
+- `BailianRerankProvider` 使用独立可配置的 DashScope rerank endpoint（`FINRAG_RERANK_BASE_URL`），默认请求 `https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank`，避免把 OpenAI-compatible chat/embedding base URL 误拼成 `/compatible-mode/v1/rerank`。
+- 如果 rerank provider 失败，会 fallback 到 fused Top5，并设置 `degraded=True`、`score_source=hybrid_fusion`、`fallback_reason`。
+- `relevance_score` / `rerank_score` 只表示真实 reranker 分数；降级时使用 `fusion_score`，前端显示“融合 xx · rerank 降级 / 降级融合结果”，避免把 0.19 一类 RRF 融合分误解为精排分。
 - Top5 evidence 会分配 `citation_id` 1-5。
 
 **当前限制：**
 
-- 当前 rerank provider 接收到的是 `candidate.preview`，而 preview 在 `BM25Store` / `VectorStore` 中默认只有 `chunk.content[:120]`。
+- 当前 rerank provider 接收到的是标题、公司、类型、日期、页码和 bounded preview 组成的文本，而不是纯 `candidate.preview[:120]`。
 - `RerankResultItem.content` 当前也来自 `candidate.preview`，所以前端展示的 evidence 可能是 120 字摘要，而不是完整 chunk。
-- 面试时可说：“MVP 已经有 rerank 抽象和 Top5 引用链路，但下一步会把 rerank 输入从 preview 改成完整 chunk content，同时前端展示完整证据文本。”
+- 面试时可说：“MVP 已经有 rerank 抽象和 Top5 引用链路，并且降级分数会明确标记为融合分，不会伪装成真实精排分；下一步会把前端 evidence 展示扩展为完整 chunk。”
 
 ### 3.6 answer generation：基于 evidence 的引用式回答
 

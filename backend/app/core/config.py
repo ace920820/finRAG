@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     index_dir: Path = Field(default=Path(__file__).resolve().parents[1] / "data" / "index")
 
     model_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    rerank_base_url: str = "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
     model_api_key: Optional[str] = None
     embedding_model: str = "text-embedding-v4"
     rerank_model: str = "qwen3-rerank"

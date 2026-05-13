@@ -32,7 +32,12 @@ export interface BackendRetrievalResultItem {
 export interface BackendRerankResultItem {
   chunk_id: string;
   rank: number;
-  rerank_score: number;
+  rerank_score: number | null;
+  relevance_score?: number | null;
+  fusion_score?: number | null;
+  degraded: boolean;
+  fallback_reason?: string | null;
+  score_source: 'rerank' | 'hybrid_fusion' | 'mock';
   title: string;
   doc_type: BackendDocType;
   company: string;
@@ -61,6 +66,9 @@ export interface RetrievalCompletePayload {
 
 export interface RerankCompletePayload {
   top5: BackendRerankResultItem[];
+  degraded: boolean;
+  fallback_reason?: string | null;
+  score_source: 'rerank' | 'hybrid_fusion' | 'mock';
 }
 
 export interface AnswerChunkPayload {
@@ -171,7 +179,10 @@ export function mapRerankResults(items: BackendRerankResultItem[]): Document[] {
     title: item.title,
     type: mapDocType(item.doc_type),
     source: formatSource(item.page, item.date, item.company),
-    score: item.rerank_score,
+    score: item.score_source === 'hybrid_fusion' ? item.fusion_score ?? 0 : item.rerank_score ?? item.relevance_score ?? 0,
+    scoreSource: item.score_source,
+    degraded: item.degraded,
+    fallbackReason: item.fallback_reason ?? undefined,
     contentSnippet: item.content,
     isHigh: item.rank <= 2,
   }));

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 DocType = Literal["financial_report", "research_report", "news"]
 QueryIntent = Literal["factual", "analytical", "reasoning"]
+ScoreSource = Literal["rerank", "hybrid_fusion", "mock"]
 
 
 class Document(BaseModel):
@@ -63,7 +64,12 @@ class RetrievalResultItem(BaseModel):
 class RerankResultItem(BaseModel):
     chunk_id: str
     rank: int
-    rerank_score: float
+    rerank_score: Optional[float] = None
+    fusion_score: Optional[float] = None
+    relevance_score: Optional[float] = None
+    degraded: bool = False
+    fallback_reason: Optional[str] = None
+    score_source: ScoreSource = "rerank"
     title: str
     doc_type: DocType
     company: str

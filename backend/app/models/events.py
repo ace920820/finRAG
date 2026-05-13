@@ -1,8 +1,8 @@
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.models.schemas import CitationMetadata, QueryIntent, RerankResultItem, RetrievalResultItem
+from app.models.schemas import CitationMetadata, QueryIntent, RerankResultItem, RetrievalResultItem, ScoreSource
 
 
 class QueryRewriteEvent(BaseModel):
@@ -19,6 +19,9 @@ class RetrievalCompleteEvent(BaseModel):
 
 class RerankCompleteEvent(BaseModel):
     top5: list[RerankResultItem] = Field(default_factory=list)
+    degraded: bool = False
+    fallback_reason: Optional[str] = None
+    score_source: ScoreSource = "rerank"
 
 
 class IntentDetectedEvent(BaseModel):

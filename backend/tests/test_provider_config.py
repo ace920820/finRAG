@@ -1,6 +1,6 @@
 from app.core.config import Settings, get_settings
 from app.core.providers.embeddings import MockEmbeddingProvider
-from app.core.providers.rerank import MockRerankProvider
+from app.core.providers.rerank import BailianRerankProvider, MockRerankProvider
 
 
 def test_provider_config_defaults_are_offline_safe():
@@ -11,6 +11,7 @@ def test_provider_config_defaults_are_offline_safe():
     assert settings.model_api_key is None
     assert settings.rrf_k == 60
     assert settings.rerank_top_k == 5
+    assert settings.rerank_base_url.endswith('/api/v1/services/rerank/text-rerank/text-rerank')
 
 
 def test_provider_config_can_be_overridden():
@@ -43,3 +44,33 @@ def test_mock_rerank_provider_is_deterministic():
     second = provider.rerank('宁德时代风险', ['原材料价格波动', '营业收入增长'])
     assert first == second
     assert first[0].score >= first[-1].score
+
+
+def test_bailian_rerank_provider_uses_dashscope_rerank_endpoint(monkeypatch):
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {'output': {'results': [{'index': 1, 'relevance_score': 0.9}]}}
+
+    def fake_post(url, json, headers, timeout):
+        captured['url'] = url
+        captured['json'] = json
+        captured['headers'] = headers
+        captured['timeout'] = timeout
+        return Response()
+
+    monkeypatch.setattr('app.core.providers.rerank.httpx.post', fake_post)
+    provider = BailianRerankProvider(api_key='test-key')
+    results = provider.rerank('query', ['doc a', 'doc b'])
+
+    assert captured['url'].endswith('/api/v1/services/rerank/text-rerank/text-rerank')
+    assert captured['json']['query'] == 'query'
+    assert captured['json']['documents'] == ['doc a', 'doc b']
+    assert captured['json']['top_n'] == 5
+    assert captured['headers']['Authorization'] == 'Bearer test-key'
+    assert results[0].score == 0.9
+    assert results[0].metadata['index'] == 1

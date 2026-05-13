@@ -13,6 +13,8 @@ except Exception:  # pragma: no cover - httpx is expected to exist
 
 
 class MockRerankProvider:
+    score_source = "mock"
+
     def rerank(self, query: str, documents: Sequence[str]) -> List[ProviderResult]:
         scored: List[ProviderResult] = []
         query_tokens = set(query.replace(" ", ""))
@@ -29,25 +31,41 @@ class MockRerankProvider:
 class BailianRerankProvider:
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None, model: Optional[str] = None):
         settings = get_settings()
-        self.base_url = base_url or settings.model_base_url
+        self.base_url = base_url or settings.rerank_base_url
         self.api_key = api_key if api_key is not None else settings.model_api_key
         self.model = model or settings.rerank_model
         self.timeout_seconds = settings.provider_timeout_seconds
+        self.top_k = settings.rerank_top_k
         if not self.api_key:
             raise ValueError("Bailian rerank provider requires FINRAG_MODEL_API_KEY")
         if httpx is None:
             raise RuntimeError("httpx package unavailable for Bailian rerank provider")
 
     def rerank(self, query: str, documents: Sequence[str]) -> List[ProviderResult]:
-        headers = {"Authorization": f"Bearer {self.api_key}"}
-        payload = {"model": self.model, "query": query, "documents": list(documents)}
-        response = httpx.post(f"{self.base_url.rstrip('/')}/rerank", json=payload, headers=headers, timeout=self.timeout_seconds)
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        payload = self._build_payload(query, documents)
+        response = httpx.post(self.base_url, json=payload, headers=headers, timeout=self.timeout_seconds)
         response.raise_for_status()
         data = response.json()
         results: List[ProviderResult] = []
-        for item in data.get("output", data.get("results", [])):
-            results.append(ProviderResult(score=float(item.get("relevance_score", item.get("score", 0.0))), metadata=item))
+        output = data.get("output", data)
+        raw_results = output.get("results", output if isinstance(output, list) else data.get("results", []))
+        for rank, item in enumerate(raw_results):
+            metadata = dict(item)
+            metadata.setdefault("index", item.get("index", rank))
+            results.append(ProviderResult(score=float(item.get("relevance_score", item.get("score", 0.0))), metadata=metadata))
         return results
+
+    def _build_payload(self, query: str, documents: Sequence[str]) -> dict:
+        if "/compatible-api/" in self.base_url or self.base_url.rstrip("/").endswith("/reranks"):
+            return {"model": self.model, "query": query, "documents": list(documents), "top_n": self.top_k}
+        if self.model == "qwen3-rerank":
+            return {"model": self.model, "query": query, "documents": list(documents), "top_n": self.top_k}
+        return {
+            "model": self.model,
+            "input": {"query": query, "documents": list(documents)},
+            "parameters": {"return_documents": False, "top_n": self.top_k},
+        }
 
 
 class MockTextProvider:

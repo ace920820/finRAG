@@ -50,7 +50,13 @@ def test_query_endpoint_streams_expected_events():
 
     rerank = _event(events, 'rerank_complete')
     assert rerank['top5']
+    assert rerank['degraded'] is False
+    assert rerank['score_source'] == 'mock'
     assert rerank['top5'][0]['citation_id'] == 1
+    assert rerank['top5'][0]['score_source'] == 'mock'
+    assert rerank['top5'][0]['degraded'] is False
+    assert rerank['top5'][0]['rerank_score'] is not None
+    assert rerank['top5'][0]['fusion_score'] is None
 
     answer_text = ''.join(payload['text'] for name, payload in events if name == 'answer_chunk')
     assert '<span class="cite" data-id="' in answer_text

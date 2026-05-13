@@ -61,7 +61,12 @@ class QueryWorkflow:
             logger.info("rerank started candidates=%d", len(retrieval_result.fused_top20))
             rerank_result = self.rerank_service.rerank(request.query, retrieval_result.fused_top20)
             logger.info("rerank complete top=%d degraded=%s", len(rerank_result.top5), rerank_result.degraded)
-            rerank = RerankCompleteEvent(top5=rerank_result.top5)
+            rerank = RerankCompleteEvent(
+                top5=rerank_result.top5,
+                degraded=rerank_result.degraded,
+                fallback_reason=rerank_result.fallback_reason,
+                score_source=rerank_result.score_source,
+            )
             degraded = rerank_result.degraded
             fallback_reason = rerank_result.fallback_reason
             evidence = rerank_result.top5
@@ -69,6 +74,7 @@ class QueryWorkflow:
             logger.exception("query retrieval/rerank failed")
             degraded = True
             fallback_reason = str(exc)
+            rerank = RerankCompleteEvent(degraded=True, fallback_reason=fallback_reason, score_source="hybrid_fusion")
         logger.info("generation started evidence=%d", len(evidence))
         answer = self.generator.generate(request.query, intent, evidence)
         logger.info("generation complete chars=%d", len(answer))

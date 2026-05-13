@@ -8,6 +8,9 @@ export interface Document {
   type: DocType;
   source: string;
   score: number;
+  scoreSource?: 'rerank' | 'hybrid_fusion' | 'mock';
+  degraded?: boolean;
+  fallbackReason?: string;
   contentSnippet?: string;
   fullContent?: string;
   isHigh?: boolean;

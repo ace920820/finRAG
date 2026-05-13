@@ -31,7 +31,12 @@ def debug_retrieval(request: DebugRetrievalRequest) -> DebugRetrievalResponse:
             vector_results=retrieval.vector_results,
             fused_top20=retrieval.fused_top20,
         ),
-        rerank_complete=RerankCompleteEvent(top5=rerank.top5),
+        rerank_complete=RerankCompleteEvent(
+            top5=rerank.top5,
+            degraded=rerank.degraded,
+            fallback_reason=rerank.fallback_reason,
+            score_source=rerank.score_source,
+        ),
         degraded=rerank.degraded,
         fallback_reason=rerank.fallback_reason,
     )

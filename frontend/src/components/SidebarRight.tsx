@@ -54,7 +54,7 @@ export function SidebarRight({ bm25Docs, vectorDocs, rerankDocs, activeCitationI
           )) : <EmptyPanel text="暂无 Vector 召回结果" />}
         </RetrievalPanel>
 
-        <RetrievalPanel title="Rerank 精排推荐 (Top 5)" open={openPanels.rerank} onToggle={() => togglePanel('rerank')} tone="primary">
+        <RetrievalPanel title={rerankDocs.some(doc => doc.degraded) ? '降级融合结果 (Top 5)' : 'Rerank 精排推荐 (Top 5)'} open={openPanels.rerank} onToggle={() => togglePanel('rerank')} tone="primary">
           {rerankDocs.length ? rerankDocs.map((doc, index) => (
             <RerankItem key={`${doc.id}-${index}`} idx={`[${index + 1}]`} doc={doc} isActive={isDocActive(doc)} />
           )) : <EmptyPanel text="暂无 Rerank 精排结果" />}
@@ -115,6 +115,9 @@ function RerankItem({ doc, idx, isActive }: { doc: Document; idx: string; isActi
   const [expanded, setExpanded] = useState(false);
   const cardRef = useRef<HTMLButtonElement>(null);
   const evidenceText = doc.fullContent || doc.contentSnippet || '暂无证据文本';
+  const scoreLabel = doc.degraded || doc.scoreSource === 'hybrid_fusion'
+    ? `融合 ${formatScore(doc.score)} · rerank 降级`
+    : `Rerank ${formatScore(doc.score)}`;
 
   useEffect(() => {
     if (isActive && cardRef.current) {
@@ -135,7 +138,7 @@ function RerankItem({ doc, idx, isActive }: { doc: Document; idx: string; isActi
     >
       <div className={clsx('flex items-start justify-between gap-3 font-bold mb-1', isActive ? 'text-blue-800' : 'text-slate-700')}>
         <span>{idx}</span>
-        <span className="shrink-0 tabular-nums text-right">{formatScore(doc.score)}</span>
+        <span className="shrink-0 tabular-nums text-right">{scoreLabel}</span>
       </div>
       <div className="font-bold text-slate-700 break-words leading-snug mb-2">{doc.title}</div>
       <p className={clsx('text-slate-600 leading-relaxed whitespace-pre-wrap', expanded ? '' : 'line-clamp-3')}>
