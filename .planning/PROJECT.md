@@ -132,6 +132,19 @@ The project is successful when the backend can run locally at `http://localhost:
 | SSE contract drift | Frontend integration delay | Define Pydantic event models and contract tests early |
 | Frontend arrives late | Reduced integration time | Provide mock SSE examples and executable API smoke tests upfront |
 
+
+## Required Coding Skill
+
+All coding, code review, refactoring, debugging, and phase execution work in this project must apply the `karpathy-guidelines` skill.
+
+Practical requirements:
+- Think before coding: surface assumptions and unclear tradeoffs before implementation.
+- Simplicity first: implement the minimum code that satisfies the current phase goal.
+- Surgical changes: touch only files required by the active GSD plan or explicit user request.
+- Goal-driven execution: define verifiable success criteria and run targeted validation.
+- Avoid speculative abstractions, broad refactors, or frontend redesign work unless explicitly requested.
+
+
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.

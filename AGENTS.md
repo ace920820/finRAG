@@ -54,6 +54,18 @@ Architecture not yet mapped. Follow existing patterns found in the codebase.
 No project skills found. Add skills to any of: `.claude/skills/`, `.agents/skills/`, `.cursor/skills/`, or `.github/skills/` with a `SKILL.md` index file.
 <!-- GSD:skills-end -->
 
+
+## Required Coding Skill
+
+All coding, code review, refactoring, debugging, and phase execution work in this project must apply the `karpathy-guidelines` skill.
+
+Practical requirements:
+- Think before coding: surface assumptions and unclear tradeoffs before implementation.
+- Simplicity first: implement the minimum code that satisfies the current phase goal.
+- Surgical changes: touch only files required by the active GSD plan or explicit user request.
+- Goal-driven execution: define verifiable success criteria and run targeted validation.
+- Avoid speculative abstractions, broad refactors, or frontend redesign work unless explicitly requested.
+
 <!-- GSD:workflow-start source:GSD defaults -->
 ## GSD Workflow Enforcement
 

@@ -58,6 +58,9 @@
 - [ ] **INTG-03**: Contract tests verify frontend-facing response shapes and SSE event payloads.
 - [ ] **INTG-04**: Demo mode can run with cached or mock provider responses if external APIs fail.
 - [ ] **INTG-05**: Error handling supports retryable provider failures and surfaces clear frontend messages.
+- [ ] **INTG-06**: Frontend adapters replace mock RAG flow with backend `/api/query` SSE while preserving existing UI state shapes.
+- [ ] **INTG-07**: Frontend document library maps `GET /api/documents` into the existing left sidebar display.
+- [ ] **INTG-08**: Frontend retrieval panels map backend `retrieval_complete` and `rerank_complete` payloads into existing right sidebar cards.
 
 ## v2 Requirements
 
@@ -124,10 +127,13 @@
 | INTG-03 | Phase 4 | Pending |
 | INTG-04 | Phase 4 | Pending |
 | INTG-05 | Phase 4 | Pending |
+| INTG-06 | Phase 4 | Pending |
+| INTG-07 | Phase 4 | Pending |
+| INTG-08 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 35 total
-- Mapped to phases: 35
+- v1 requirements: 38 total
+- Mapped to phases: 38
 - Unmapped: 0
 
 ---

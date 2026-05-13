@@ -11,7 +11,7 @@
 | 1 | Backend Foundation And Demo Data | Establish runnable FastAPI backend, schemas, document endpoint, and deterministic demo data pipeline. | BACK-01..04, DATA-01..05, API-01 | no | Pending |
 | 2 | Hybrid Retrieval And Rerank | Build BM25/vector retrieval, RRF fusion, rerank Top 5, and degradation path. | RETR-01..06, API-04, API-05 | no | Pending |
 | 3 | Agent Workflow And SSE Query API | Orchestrate rewrite, retrieval, rerank, intent, LLM streaming, citations, errors, and heartbeat events. | AGNT-01..06, API-02, API-03, API-06..09 | no | Pending |
-| 4 | Integration And Demo Hardening | Validate imported React frontend against contract and stabilize three demo scenarios with fallbacks. | INTG-01..05 | yes | Pending |
+| 4 | Integration And Demo Hardening | Validate imported React frontend against contract and stabilize three demo scenarios with fallbacks. | INTG-01..08 | yes | Pending |
 | 5 | P1 Enhancements | Add optional rewrite preview and polish financial-specific quality improvements as time allows. | API-10, selected v2 quality items | partial | Pending |
 
 ## Phase Details
@@ -56,12 +56,16 @@
 3. Intent classification selects factual, analytical, or reasoning prompt templates.
 4. Generated Markdown includes citation markers that map to `done.citations` metadata.
 5. Error and heartbeat behavior is testable and frontend-friendly.
+6. Backend SSE fixtures/examples mirror the imported frontend's current `Message` stage flow and `SidebarRight` retrieval panels.
+7. Answer citation markup can be adapted into the frontend's clickable citation span behavior.
+
+**Frontend integration prep:** Read `.planning/frontend-integration-readiness.md` before planning or implementing this phase. Phase 3 should stabilize backend SSE payloads so Phase 4 can replace frontend mocks with adapters instead of redesigning UI.
 
 ### Phase 4: Integration And Demo Hardening
 
 **Goal:** Ensure the imported React app can integrate without contract churn and the demo survives provider/network failures.
 
-**Requirements:** INTG-01, INTG-02, INTG-03, INTG-04, INTG-05
+**Requirements:** INTG-01, INTG-02, INTG-03, INTG-04, INTG-05, INTG-06, INTG-07, INTG-08
 
 **Success Criteria:**
 1. Contract tests cover `GET /api/documents` and all SSE event payload shapes.
@@ -69,6 +73,11 @@
 3. Three demo questions complete end-to-end with visible retrieval and citation data.
 4. Demo mode can use cached/mock provider responses when external APIs are unavailable.
 5. Integration issues are fixed at API boundaries without taking over frontend design work.
+6. Frontend mock flow in `frontend/src/App.tsx` is replaced by a backend API/SSE adapter while preserving existing component layout and state shapes.
+7. `GET /api/documents` populates the left document library, and `retrieval_complete`/`rerank_complete` populate the right retrieval panels.
+8. Citation IDs from backend `rerank_complete`/`done.citations` drive the existing clickable citation highlight behavior.
+
+**Frontend integration prep:** Use `.planning/frontend-integration-readiness.md` as the canonical adapter checklist for this phase.
 
 ### Phase 5: P1 Enhancements
 
@@ -96,4 +105,4 @@
 - Frontend UI design intentionally excluded from phase goals except integration validation.
 
 ---
-*Last updated: 2026-05-13 after initialization*
+*Last updated: 2026-05-13 after frontend import integration prep*
