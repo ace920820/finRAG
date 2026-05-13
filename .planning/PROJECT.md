@@ -2,7 +2,7 @@
 
 **Initialized:** 2026-05-13  
 **Current shipped milestone:** v1.1 Document Import Pipeline  
-**Last updated:** 2026-05-13 after v1.1 milestone completion
+**Last updated:** 2026-05-13 after starting v1.2 milestone
 
 ## Current State
 
@@ -46,6 +46,18 @@ React frontend / SSE query workflow
 - `.env` and provider API keys must remain local and uncommitted.
 - Tests should stay deterministic and default to mock providers unless explicitly doing live-provider UAT.
 - OCR is out of scope unless a future milestone explicitly requires scanned-PDF support.
+
+
+## Current Milestone: v1.2 Frontend Evidence Traceability & Interaction Polish
+
+**Goal:** Make the real-corpus demo easier to navigate and fully traceable across multi-turn conversations.
+
+**Target features:**
+- Rewrite the three left-sidebar example questions around the imported corpus companies.
+- Let users open documents directly from the left document library.
+- Make BM25, Vector, and Rerank panels independently collapsible, including all-collapsed state.
+- Show full Rerank Top 5 evidence text and consistently render rerank scores.
+- Preserve retrieval snapshots and citation mappings per conversation turn.
 
 ## Next Milestone Goals
 
