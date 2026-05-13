@@ -51,6 +51,24 @@ Phase 3 should produce backend SSE payloads that are stable and complete. Phase 
 | `score` / `rerank_score` | `Document.score` |
 | `preview` / `content` | `Document.contentSnippet` |
 
+## Final Phase 3 SSE Contract
+
+The backend query stream should emit events in this order for the imported React frontend:
+
+1. `query_rewrite`
+2. `intent_detected`
+3. `retrieval_complete`
+4. `rerank_complete`
+5. `ping`
+6. one or more `answer_chunk`
+7. `done`
+
+Notes for Phase 4:
+
+- `answer_chunk.text` can be appended directly into the assistant message body.
+- `done.citations` is keyed by string citation IDs and maps cleanly to clickable citation spans.
+- `error` events should be shown in the existing toast/retry path without changing layout.
+
 ## Phase 3 Prep Requirements
 
 Phase 3 should add backend contract examples and/or tests that mirror frontend needs:

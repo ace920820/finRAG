@@ -10,7 +10,7 @@
 |-------|------|------|--------------|---------|--------|
 | 1 | Backend Foundation And Demo Data | Establish runnable FastAPI backend, schemas, document endpoint, and deterministic demo data pipeline. | BACK-01..04, DATA-01..05, API-01 | no | Pending |
 | 2 | Hybrid Retrieval And Rerank | Build BM25/vector retrieval, RRF fusion, rerank Top 5, and degradation path. | RETR-01..06, API-04, API-05 | no | Pending |
-| 3 | Agent Workflow And SSE Query API | Orchestrate rewrite, retrieval, rerank, intent, LLM streaming, citations, errors, and heartbeat events. | AGNT-01..06, API-02, API-03, API-06..09 | no | Pending |
+| 3 | Agent Workflow And SSE Query API | Orchestrate rewrite, retrieval, rerank, intent, LLM streaming, citations, errors, and heartbeat events. | AGNT-01..06, API-02, API-03, API-06..09 | no | Complete |
 | 4 | Integration And Demo Hardening | Validate imported React frontend against contract and stabilize three demo scenarios with fallbacks. | INTG-01..08 | yes | Pending |
 | 5 | P1 Enhancements | Add optional rewrite preview and polish financial-specific quality improvements as time allows. | API-10, selected v2 quality items | partial | Pending |
 

@@ -31,24 +31,24 @@
 
 ### Agent Workflow
 
-- [ ] **AGNT-01**: Query rewrite expands detected company aliases for Guizhou Moutai and CATL demo queries.
-- [ ] **AGNT-02**: Query rewrite can return sub-queries for complex macro-to-sector reasoning questions.
-- [ ] **AGNT-03**: Intent classification labels queries as `factual`, `analytical`, or `reasoning`.
-- [ ] **AGNT-04**: Workflow emits lifecycle events in order: query rewrite, retrieval, rerank, optional intent, answer chunks, done or error.
-- [ ] **AGNT-05**: Prompt templates enforce factual, analytical, and reasoning Markdown structures.
-- [ ] **AGNT-06**: Generation refuses unsupported claims with “资料中未提及” instead of hallucinating.
+- [x] **AGNT-01**: Query rewrite expands detected company aliases for Guizhou Moutai and CATL demo queries.
+- [x] **AGNT-02**: Query rewrite can return sub-queries for complex macro-to-sector reasoning questions.
+- [x] **AGNT-03**: Intent classification labels queries as `factual`, `analytical`, or `reasoning`.
+- [x] **AGNT-04**: Workflow emits lifecycle events in order: query rewrite, retrieval, rerank, optional intent, answer chunks, done or error.
+- [x] **AGNT-05**: Prompt templates enforce factual, analytical, and reasoning Markdown structures.
+- [x] **AGNT-06**: Generation refuses unsupported claims with “资料中未提及” instead of hallucinating.
 
 ### API Contract
 
 - [x] **API-01**: `GET /api/documents` returns total count and document metadata for the left sidebar.
-- [ ] **API-02**: `POST /api/query` accepts query and optional session ID and responds as `text/event-stream`.
-- [ ] **API-03**: SSE `query_rewrite` event includes original query, expanded terms, and sub-queries.
+- [x] **API-02**: `POST /api/query` accepts query and optional session ID and responds as `text/event-stream`.
+- [x] **API-03**: SSE `query_rewrite` event includes original query, expanded terms, and sub-queries.
 - [x] **API-04**: SSE `retrieval_complete` event includes BM25, vector, and fused result arrays.
 - [x] **API-05**: SSE `rerank_complete` event includes Top 5 chunks with citation IDs.
-- [ ] **API-06**: SSE `answer_chunk` events stream Markdown text fragments.
-- [ ] **API-07**: SSE `done` event includes latency, token count, and citation metadata.
-- [ ] **API-08**: SSE `error` event includes machine-readable code and user-facing message.
-- [ ] **API-09**: SSE heartbeat sends `ping` at least every 15 seconds during long-running queries.
+- [x] **API-06**: SSE `answer_chunk` events stream Markdown text fragments.
+- [x] **API-07**: SSE `done` event includes latency, token count, and citation metadata.
+- [x] **API-08**: SSE `error` event includes machine-readable code and user-facing message.
+- [x] **API-09**: SSE heartbeat sends `ping` at least every 15 seconds during long-running queries.
 - [ ] **API-10**: Optional `POST /api/preview-rewrite` returns expanded terms and detected entities.
 
 ### Integration And Demo
@@ -106,21 +106,21 @@
 | RETR-04 | Phase 2 | Complete |
 | RETR-05 | Phase 2 | Complete |
 | RETR-06 | Phase 2 | Complete |
-| AGNT-01 | Phase 3 | Pending |
-| AGNT-02 | Phase 3 | Pending |
-| AGNT-03 | Phase 3 | Pending |
-| AGNT-04 | Phase 3 | Pending |
-| AGNT-05 | Phase 3 | Pending |
-| AGNT-06 | Phase 3 | Pending |
+| AGNT-01 | Phase 3 | Complete |
+| AGNT-02 | Phase 3 | Complete |
+| AGNT-03 | Phase 3 | Complete |
+| AGNT-04 | Phase 3 | Complete |
+| AGNT-05 | Phase 3 | Complete |
+| AGNT-06 | Phase 3 | Complete |
 | API-01 | Phase 1 | Complete |
-| API-02 | Phase 3 | Pending |
-| API-03 | Phase 3 | Pending |
+| API-02 | Phase 3 | Complete |
+| API-03 | Phase 3 | Complete |
 | API-04 | Phase 2 | Complete |
 | API-05 | Phase 2 | Complete |
-| API-06 | Phase 3 | Pending |
-| API-07 | Phase 3 | Pending |
-| API-08 | Phase 3 | Pending |
-| API-09 | Phase 3 | Pending |
+| API-06 | Phase 3 | Complete |
+| API-07 | Phase 3 | Complete |
+| API-08 | Phase 3 | Complete |
+| API-09 | Phase 3 | Complete |
 | API-10 | Phase 5 | Pending |
 | INTG-01 | Phase 4 | Pending |
 | INTG-02 | Phase 4 | Pending |

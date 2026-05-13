@@ -50,8 +50,21 @@ class BailianRerankProvider:
 
 
 class MockTextProvider:
-    def generate_text(self, prompt: str) -> str:
-        return prompt
+    def generate_text(self, prompt: str, **kwargs) -> str:
+        evidence = kwargs.get("evidence") or []
+        intent = kwargs.get("intent", "analytical")
+        query = kwargs.get("query", "")
+        if not evidence:
+            return "资料中未提及。"
+        first = evidence[0]
+        cite = f'<span class="cite" data-id="{first.citation_id}">[{first.citation_id}]</span>'
+        if intent == "factual":
+            return f"### 结论\n\n{first.content}{cite}"
+        bullets = "\n".join(
+            f"- {item.content}<span class=\"cite\" data-id=\"{item.citation_id}\">[{item.citation_id}]</span>"
+            for item in evidence[:3]
+        )
+        return f"### 分析摘要\n\n{bullets}\n\n### 回答范围\n\n以上回答针对：{query}"
 
 
 class BailianTextProvider:
@@ -65,12 +78,22 @@ class BailianTextProvider:
         if httpx is None:
             raise RuntimeError("httpx package unavailable for Bailian text provider")
 
-    def generate_text(self, prompt: str) -> str:
+    def generate_text(self, prompt: str, **kwargs) -> str:
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        payload = {"model": self.model, "input": prompt}
-        response = httpx.post(f"{self.base_url.rstrip('/')}/responses", json=payload, headers=headers, timeout=60)
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": "你是严谨的金融研究助手。"},
+                {"role": "user", "content": prompt},
+            ],
+            "temperature": 0.2,
+        }
+        response = httpx.post(f"{self.base_url.rstrip('/')}/chat/completions", json=payload, headers=headers, timeout=60)
         response.raise_for_status()
         data = response.json()
+        choices = data.get("choices", [])
+        if choices:
+            return choices[0].get("message", {}).get("content", "")
         return data.get("output_text", data.get("text", ""))
 
 
