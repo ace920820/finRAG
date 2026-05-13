@@ -68,9 +68,9 @@ def test_bailian_rerank_provider_uses_dashscope_rerank_endpoint(monkeypatch):
     results = provider.rerank('query', ['doc a', 'doc b'])
 
     assert captured['url'].endswith('/api/v1/services/rerank/text-rerank/text-rerank')
-    assert captured['json']['query'] == 'query'
-    assert captured['json']['documents'] == ['doc a', 'doc b']
-    assert captured['json']['top_n'] == 5
+    assert captured['json']['input']['query'] == 'query'
+    assert captured['json']['input']['documents'] == ['doc a', 'doc b']
+    assert captured['json']['parameters']['top_n'] == 5
     assert captured['headers']['Authorization'] == 'Bearer test-key'
     assert results[0].score == 0.9
     assert results[0].metadata['index'] == 1

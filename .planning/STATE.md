@@ -53,3 +53,9 @@ Run manual smoke test for example questions, document opening, panel collapse, R
 
 - Roadmap archive: `.planning/milestones/v1.1-ROADMAP.md`
 - Requirements archive: `.planning/milestones/v1.1-REQUIREMENTS.md`
+
+## Quick Tasks Completed
+
+| Date | ID | Task | Result |
+| --- | --- | --- | --- |
+| 2026-05-13 | 260513-tpr | Fix Bailian rerank degradation | Corrected DashScope rerank payload; live rerank now returns real relevance scores without degradation. |

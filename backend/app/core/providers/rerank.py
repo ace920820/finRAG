@@ -59,8 +59,6 @@ class BailianRerankProvider:
     def _build_payload(self, query: str, documents: Sequence[str]) -> dict:
         if "/compatible-api/" in self.base_url or self.base_url.rstrip("/").endswith("/reranks"):
             return {"model": self.model, "query": query, "documents": list(documents), "top_n": self.top_k}
-        if self.model == "qwen3-rerank":
-            return {"model": self.model, "query": query, "documents": list(documents), "top_n": self.top_k}
         return {
             "model": self.model,
             "input": {"query": query, "documents": list(documents)},
