@@ -6,7 +6,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-ProviderName = Literal["mock", "bailian"]
+ProviderName = Literal["mock", "bailian", "silicon"]
 
 
 class Settings(BaseSettings):
@@ -19,7 +19,9 @@ class Settings(BaseSettings):
 
     model_base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     rerank_base_url: str = "https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank"
+    silicon_base_url: str = "https://api.siliconflow.cn/v1"
     model_api_key: Optional[str] = None
+    model_api_key_silicon: Optional[str] = None
     embedding_model: str = "text-embedding-v4"
     rerank_model: str = "qwen3-rerank"
     text_model: str = "qwen-plus"
@@ -42,7 +44,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("model_api_key", "embedding_api_key", "rerank_api_key", "llm_api_key", mode="before")
+    @field_validator("model_api_key", "model_api_key_silicon", "embedding_api_key", "rerank_api_key", "llm_api_key", mode="before")
     @classmethod
     def blank_secret_to_none(cls, value):
         if value == "":

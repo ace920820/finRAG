@@ -20,12 +20,29 @@ Copy `backend/.env.example` to a local `.env` and fill in only your own credenti
 
 Key fields:
 - `FINRAG_MODEL_BASE_URL`
-- `FINRAG_MODEL_API_KEY`
+- `FINRAG_MODEL_API_KEY` for Bailian/Qwen text generation
+- `FINRAG_MODEL_API_KEY_SILICON` for SiliconFlow embedding/rerank
+- `FINRAG_SILICON_BASE_URL`, default `https://api.siliconflow.cn/v1`
 - `FINRAG_EMBEDDING_MODEL`
 - `FINRAG_RERANK_MODEL`
 - `FINRAG_TEXT_MODEL`
 
-Defaults use mock providers for tests. Live Bailian smoke tests are optional and manual. Do not commit `.env`.
+Defaults use mock providers for tests. Live Bailian/SiliconFlow smoke tests are optional and manual. Do not commit `.env`.
+
+SiliconFlow embedding/rerank with Bailian Qwen text example:
+
+```env
+FINRAG_MODEL_API_KEY=your-bailian-key
+FINRAG_MODEL_API_KEY_SILICON=your-siliconflow-key
+FINRAG_EMBEDDING_MODEL=BAAI/bge-m3
+FINRAG_RERANK_MODEL=BAAI/bge-reranker-v2-m3
+FINRAG_TEXT_MODEL=qwen-plus
+FINRAG_EMBEDDING_PROVIDER=silicon
+FINRAG_RERANK_PROVIDER=silicon
+FINRAG_TEXT_PROVIDER=bailian
+```
+
+When changing `FINRAG_EMBEDDING_PROVIDER` or `FINRAG_EMBEDDING_MODEL`, rebuild the index with the same settings before querying.
 
 ## Run
 

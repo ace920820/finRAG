@@ -1,6 +1,6 @@
 from app.core.config import Settings, get_settings
-from app.core.providers.embeddings import MockEmbeddingProvider
-from app.core.providers.rerank import BailianRerankProvider, MockRerankProvider
+from app.core.providers.embeddings import MockEmbeddingProvider, SiliconEmbeddingProvider
+from app.core.providers.rerank import BailianRerankProvider, MockRerankProvider, SiliconRerankProvider
 
 
 def test_provider_config_defaults_are_offline_safe():
@@ -20,6 +20,7 @@ def test_provider_config_can_be_overridden():
         embedding_provider='bailian',
         rerank_provider='bailian',
         text_provider='bailian',
+        model_api_key_silicon='silicon-key',
         embedding_model='custom-embedding',
         rerank_model='custom-rerank',
         text_model='qwen-plus',
@@ -28,6 +29,7 @@ def test_provider_config_can_be_overridden():
     assert settings.embedding_model == 'custom-embedding'
     assert settings.rerank_model == 'custom-rerank'
     assert settings.text_model == 'qwen-plus'
+    assert settings.model_api_key_silicon == 'silicon-key'
 
 
 def test_mock_embedding_provider_is_deterministic():
@@ -92,3 +94,68 @@ def test_vector_search_uses_active_embedding_provider(monkeypatch):
 
     assert results[0].chunk_id == 'c1'
     assert results[0].score == 1.0
+
+
+def test_silicon_rerank_provider_uses_v1_rerank_endpoint(monkeypatch):
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {'results': [{'index': 1, 'relevance_score': 0.88}]}
+
+    def fake_post(url, json, headers, timeout):
+        captured['url'] = url
+        captured['json'] = json
+        captured['headers'] = headers
+        captured['timeout'] = timeout
+        return Response()
+
+    monkeypatch.setattr('app.core.providers.rerank.httpx.post', fake_post)
+    provider = SiliconRerankProvider(api_key='silicon-key', model='BAAI/bge-reranker-v2-m3')
+    results = provider.rerank('query', ['doc a', 'doc b'])
+
+    assert captured['url'] == 'https://api.siliconflow.cn/v1/rerank'
+    assert captured['json'] == {
+        'model': 'BAAI/bge-reranker-v2-m3',
+        'query': 'query',
+        'documents': ['doc a', 'doc b'],
+        'top_n': 5,
+    }
+    assert captured['headers']['Authorization'] == 'Bearer silicon-key'
+    assert results[0].score == 0.88
+    assert results[0].metadata['index'] == 1
+
+
+def test_silicon_embedding_provider_uses_openai_compatible_embeddings(monkeypatch):
+    captured = {}
+
+    class EmbeddingItem:
+        def __init__(self, index, embedding):
+            self.index = index
+            self.embedding = embedding
+
+    class EmbeddingsClient:
+        def create(self, model, input):
+            captured['model'] = model
+            captured['input'] = input
+            return type('Response', (), {'data': [EmbeddingItem(1, [0.3, 0.4]), EmbeddingItem(0, [0.1, 0.2])]})
+
+    class Client:
+        def __init__(self, base_url, api_key, timeout):
+            captured['base_url'] = base_url
+            captured['api_key'] = api_key
+            captured['timeout'] = timeout
+            self.embeddings = EmbeddingsClient()
+
+    monkeypatch.setattr('app.core.providers.embeddings.OpenAI', Client)
+    provider = SiliconEmbeddingProvider(api_key='silicon-key', model='BAAI/bge-m3')
+    vectors = provider.embed_texts(['a', 'b'])
+
+    assert captured['base_url'] == 'https://api.siliconflow.cn/v1'
+    assert captured['api_key'] == 'silicon-key'
+    assert captured['model'] == 'BAAI/bge-m3'
+    assert captured['input'] == ['a', 'b']
+    assert vectors == [[0.1, 0.2], [0.3, 0.4]]

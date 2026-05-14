@@ -4,14 +4,16 @@ from app.core.providers.base import (
     RerankProvider,
     TextProvider,
 )
-from app.core.providers.embeddings import BailianEmbeddingProvider, MockEmbeddingProvider
-from app.core.providers.rerank import BailianRerankProvider, MockRerankProvider
+from app.core.providers.embeddings import BailianEmbeddingProvider, MockEmbeddingProvider, SiliconEmbeddingProvider
+from app.core.providers.rerank import BailianRerankProvider, MockRerankProvider, SiliconRerankProvider
 from app.core.providers.text import BailianTextProvider, MockTextProvider
 
 __all__ = [
     "BailianEmbeddingProvider",
     "BailianRerankProvider",
     "BailianTextProvider",
+    "SiliconEmbeddingProvider",
+    "SiliconRerankProvider",
     "EmbeddingProvider",
     "MockEmbeddingProvider",
     "MockRerankProvider",

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import time
 from typing import List, Sequence, Optional, Union
 
-import httpx
 
 from app.core.config import get_settings
 
@@ -31,30 +31,45 @@ class MockEmbeddingProvider:
         return vectors
 
 
-class BailianEmbeddingProvider:
+class SiliconEmbeddingProvider:
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None, model: Optional[str] = None):
         settings = get_settings()
-        self.base_url = base_url or settings.model_base_url
-        self.api_key = api_key if api_key is not None else settings.model_api_key
+        self.base_url = base_url or settings.silicon_base_url
+        self.api_key = api_key if api_key is not None else settings.model_api_key_silicon
         self.model = model or settings.embedding_model
         self.timeout_seconds = settings.provider_timeout_seconds
-        # Keep requests well under common OpenAI-compatible body limits (DashScope is 6 MiB).
-        self.max_batch_items = 10
-        self.max_batch_bytes = 2_000_000
+        self.max_batch_items = 2
+        self.max_batch_bytes = 200_000
+        self.max_retries = 8
+        self.retry_sleep_seconds = 20.0
         if not self.api_key:
-            raise ValueError("Bailian embedding provider requires FINRAG_MODEL_API_KEY")
+            raise ValueError("SiliconFlow embedding provider requires FINRAG_MODEL_API_KEY_SILICON")
         self._client = OpenAI(base_url=self.base_url, api_key=self.api_key, timeout=self.timeout_seconds) if OpenAI is not None else None
 
     def embed_texts(self, texts: Sequence[str]) -> List[List[float]]:
         if self._client is None:
-            raise RuntimeError("openai package unavailable for Bailian embedding provider")
-
+            raise RuntimeError("openai package unavailable for SiliconFlow embedding provider")
         vectors: List[List[float]] = []
         for batch in self._iter_batches(list(texts)):
-            response = self._client.embeddings.create(model=self.model, input=batch)
+            response = self._create_embeddings_with_retry(batch)
             items = sorted(response.data, key=lambda item: getattr(item, "index", 0))
             vectors.extend([list(item.embedding) for item in items])
         return vectors
+
+    def _create_embeddings_with_retry(self, batch: list[str]):
+        last_error = None
+        for attempt in range(self.max_retries):
+            try:
+                return self._client.embeddings.create(model=self.model, input=batch)
+            except Exception as exc:
+                last_error = exc
+                status_code = getattr(exc, "status_code", None)
+                message = str(exc).lower()
+                if status_code != 429 and "rate" not in message and "tpm" not in message:
+                    raise
+                sleep_seconds = self.retry_sleep_seconds * (attempt + 1)
+                time.sleep(sleep_seconds)
+        raise last_error
 
     def _iter_batches(self, texts: list[str]):
         batch: list[str] = []
@@ -74,8 +89,70 @@ class BailianEmbeddingProvider:
             yield batch
 
 
-def build_embedding_provider() -> Union[MockEmbeddingProvider, BailianEmbeddingProvider]:
+class BailianEmbeddingProvider:
+    def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None, model: Optional[str] = None):
+        settings = get_settings()
+        self.base_url = base_url or settings.model_base_url
+        self.api_key = api_key if api_key is not None else settings.model_api_key
+        self.model = model or settings.embedding_model
+        self.timeout_seconds = settings.provider_timeout_seconds
+        # Keep requests well under common OpenAI-compatible body limits (DashScope is 6 MiB).
+        self.max_batch_items = 2
+        self.max_batch_bytes = 200_000
+        self.max_retries = 8
+        self.retry_sleep_seconds = 20.0
+        if not self.api_key:
+            raise ValueError("Bailian embedding provider requires FINRAG_MODEL_API_KEY")
+        self._client = OpenAI(base_url=self.base_url, api_key=self.api_key, timeout=self.timeout_seconds) if OpenAI is not None else None
+
+    def embed_texts(self, texts: Sequence[str]) -> List[List[float]]:
+        if self._client is None:
+            raise RuntimeError("openai package unavailable for Bailian embedding provider")
+
+        vectors: List[List[float]] = []
+        for batch in self._iter_batches(list(texts)):
+            response = self._create_embeddings_with_retry(batch)
+            items = sorted(response.data, key=lambda item: getattr(item, "index", 0))
+            vectors.extend([list(item.embedding) for item in items])
+        return vectors
+
+    def _create_embeddings_with_retry(self, batch: list[str]):
+        last_error = None
+        for attempt in range(self.max_retries):
+            try:
+                return self._client.embeddings.create(model=self.model, input=batch)
+            except Exception as exc:
+                last_error = exc
+                status_code = getattr(exc, "status_code", None)
+                message = str(exc).lower()
+                if status_code != 429 and "rate" not in message and "tpm" not in message:
+                    raise
+                sleep_seconds = self.retry_sleep_seconds * (attempt + 1)
+                time.sleep(sleep_seconds)
+        raise last_error
+
+    def _iter_batches(self, texts: list[str]):
+        batch: list[str] = []
+        batch_bytes = 0
+        for text in texts:
+            text_bytes = len(text.encode("utf-8"))
+            if batch and (
+                len(batch) >= self.max_batch_items
+                or batch_bytes + text_bytes > self.max_batch_bytes
+            ):
+                yield batch
+                batch = []
+                batch_bytes = 0
+            batch.append(text)
+            batch_bytes += text_bytes
+        if batch:
+            yield batch
+
+
+def build_embedding_provider() -> Union[MockEmbeddingProvider, BailianEmbeddingProvider, SiliconEmbeddingProvider]:
     settings = get_settings()
+    if settings.embedding_provider == "silicon":
+        return SiliconEmbeddingProvider()
     if settings.embedding_provider == "bailian" and settings.model_api_key:
         return BailianEmbeddingProvider()
     return MockEmbeddingProvider()

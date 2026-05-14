@@ -28,6 +28,35 @@ class MockRerankProvider:
         return scored
 
 
+class SiliconRerankProvider:
+    def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None, model: Optional[str] = None):
+        settings = get_settings()
+        self.base_url = (base_url or settings.silicon_base_url).rstrip("/")
+        self.api_key = api_key if api_key is not None else settings.model_api_key_silicon
+        self.model = model or settings.rerank_model
+        self.timeout_seconds = settings.provider_timeout_seconds
+        self.top_k = settings.rerank_top_k
+        if not self.api_key:
+            raise ValueError("SiliconFlow rerank provider requires FINRAG_MODEL_API_KEY_SILICON")
+        if httpx is None:
+            raise RuntimeError("httpx package unavailable for SiliconFlow rerank provider")
+
+    def rerank(self, query: str, documents: Sequence[str]) -> List[ProviderResult]:
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        payload = {"model": self.model, "query": query, "documents": list(documents), "top_n": self.top_k}
+        response = httpx.post(f"{self.base_url}/rerank", json=payload, headers=headers, timeout=self.timeout_seconds)
+        response.raise_for_status()
+        data = response.json()
+        raw_results = data.get("results") or data.get("data") or data.get("output", {}).get("results", [])
+        results: List[ProviderResult] = []
+        for rank, item in enumerate(raw_results):
+            metadata = dict(item)
+            metadata.setdefault("index", item.get("index", rank))
+            score = item.get("relevance_score", item.get("score", item.get("rerank_score", 0.0)))
+            results.append(ProviderResult(score=float(score), metadata=metadata))
+        return results
+
+
 class BailianRerankProvider:
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None, model: Optional[str] = None):
         settings = get_settings()
@@ -66,8 +95,10 @@ class BailianRerankProvider:
         }
 
 
-def build_rerank_provider() -> Union[MockRerankProvider, BailianRerankProvider]:
+def build_rerank_provider() -> Union[MockRerankProvider, BailianRerankProvider, SiliconRerankProvider]:
     settings = get_settings()
+    if settings.rerank_provider == "silicon":
+        return SiliconRerankProvider()
     if settings.rerank_provider == "bailian":
         return BailianRerankProvider()
     return MockRerankProvider()

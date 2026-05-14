@@ -58,6 +58,8 @@ cp backend/.env.example backend/.env
 ```env
 FINRAG_MODEL_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 FINRAG_MODEL_API_KEY=你的阿里云百炼 API Key
+FINRAG_MODEL_API_KEY_SILICON=你的硅基流动 API Key
+FINRAG_SILICON_BASE_URL=https://api.siliconflow.cn/v1
 FINRAG_EMBEDDING_MODEL=text-embedding-v4
 FINRAG_RERANK_MODEL=qwen3-rerank
 FINRAG_TEXT_MODEL=qwen-plus
@@ -81,11 +83,24 @@ FINRAG_RERANK_PROVIDER=bailian
 FINRAG_TEXT_PROVIDER=bailian
 ```
 
+如果 embedding/rerank 使用硅基流动、文本生成继续使用百炼千问，可配置：
+
+```env
+FINRAG_MODEL_API_KEY=你的阿里云百炼 API Key
+FINRAG_MODEL_API_KEY_SILICON=你的硅基流动 API Key
+FINRAG_EMBEDDING_MODEL=BAAI/bge-m3
+FINRAG_RERANK_MODEL=BAAI/bge-reranker-v2-m3
+FINRAG_TEXT_MODEL=qwen-plus
+FINRAG_EMBEDDING_PROVIDER=silicon
+FINRAG_RERANK_PROVIDER=silicon
+FINRAG_TEXT_PROVIDER=bailian
+```
+
 注意：
 
 - `.env` 不要提交到 Git。
 - 测试和本地无模型演示可以继续使用 `mock`。
-- 如果切换了 embedding provider，必须重建向量索引，否则可能出现向量维度不匹配。
+- 如果切换了 embedding provider 或 embedding model，必须重建向量索引，否则可能出现向量维度不匹配。
 
 ## 本地开发启动
 
@@ -283,10 +298,11 @@ nano backend/.env
 生产/演示建议：
 
 ```env
-FINRAG_EMBEDDING_PROVIDER=bailian
-FINRAG_RERANK_PROVIDER=bailian
+FINRAG_EMBEDDING_PROVIDER=silicon
+FINRAG_RERANK_PROVIDER=silicon
 FINRAG_TEXT_PROVIDER=bailian
 FINRAG_MODEL_API_KEY=你的阿里云百炼 API Key
+FINRAG_MODEL_API_KEY_SILICON=你的硅基流动 API Key
 FINRAG_INDEX_DIR=backend/app/data/index
 ```
 
@@ -319,7 +335,7 @@ python3 scripts/import_corpus.py \
   --rebuild-index
 ```
 
-重要：如果 `.env` 中使用 `bailian` embedding provider，索引也必须用同样 provider 重建。不要用 mock 索引搭配百炼 embedding 查询。
+重要：如果 `.env` 中使用 `bailian` 或 `silicon` embedding provider，索引也必须用同样 provider 和同一个 embedding model 重建。不要用 mock 索引搭配真实 embedding 查询，也不要用旧模型索引搭配新模型查询。
 
 ### 5. 使用 systemd 运行后端
 
