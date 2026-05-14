@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { 
   FileText, 
   Layers, 
@@ -15,7 +15,12 @@ import {
   XCircle,
   Trash2,
   MoreVertical,
-  Plus
+  Settings,
+  X,
+  Info,
+  ChevronDown,
+  RotateCw,
+  SlidersHorizontal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Document, Task, KBStats, DocStatus } from './knowledgeBaseTypes';
@@ -95,6 +100,7 @@ export function KnowledgeBaseManager({ onBackToChat }: { onBackToChat: () => voi
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [stats, setStats] = useState<KBStats>(MOCK_STATS);
   const [docs, setDocs] = useState<Document[]>(MOCK_DOCS);
   const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
@@ -205,18 +211,12 @@ export function KnowledgeBaseManager({ onBackToChat }: { onBackToChat: () => voi
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
       {/* Header */}
-      <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-10">
+      <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-10 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">F</div>
           <h1 className="text-xl font-semibold tracking-tight">FinRAG · 知识库管理</h1>
         </div>
         <div className="flex items-center gap-4">
-          <button
-            onClick={onBackToChat}
-            className="px-4 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            返回对话
-          </button>
           <button 
             onClick={() => setActiveTab('docs')}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'docs' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
@@ -229,13 +229,18 @@ export function KnowledgeBaseManager({ onBackToChat }: { onBackToChat: () => voi
           >
             任务状态
           </button>
-          <div className="h-6 w-px bg-slate-200 mx-2" />
-          <button 
-            onClick={() => setIsImportModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-all shadow-sm"
+          <button
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="px-4 py-2 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"
           >
-            <Plus className="w-4 h-4" />
-            资料导入
+            <Settings className="w-4 h-4" />
+            设置
+          </button>
+          <button
+            onClick={onBackToChat}
+            className="px-4 py-2 rounded-md text-sm font-medium text-blue-700 hover:bg-blue-50 border border-blue-200 transition-colors"
+          >
+            返回对话
           </button>
         </div>
       </header>
@@ -589,6 +594,64 @@ export function KnowledgeBaseManager({ onBackToChat }: { onBackToChat: () => voi
         )}
       </AnimatePresence>
 
+
+      {/* Settings Dialog */}
+      <AnimatePresence>
+        {isSettingsModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsSettingsModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/30 backdrop-blur-[1px]"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              className="relative w-full max-w-[500px] max-h-[88vh] rounded-lg bg-white shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
+            >
+              <div className="h-12 px-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <h3 className="text-base font-medium text-slate-900">知识库设置</h3>
+                <button onClick={() => setIsSettingsModalOpen(false)} className="p-1 rounded-md hover:bg-slate-100 transition-colors">
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="px-6 py-4 overflow-y-auto space-y-6">
+                <SettingSelect label="嵌入模型" value="BAAI/bge-m3 | 硅基流动" />
+                <SettingInput label="嵌入维度" value="1024" trailing={<RotateCw className="w-4 h-4 text-slate-500" />} />
+                <SettingSlider label="请求文档片段数量" min="1" mid="默认" value="30" max="50" />
+
+                <div className="border-t border-slate-100 pt-5 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-slate-900">高级设置</h4>
+                    <span className="text-[11px] text-slate-400">仅前端展示，暂未连接后端</span>
+                  </div>
+                  <SettingSelect label="文档处理" value="选择一个文档处理服务商" muted />
+                  <SettingSelect label="重排模型" value="BAAI/bge-reranker-v2-m3 | 硅基流动" />
+                  <SettingInput label="分段大小" value="默认值（不建议修改）" muted />
+                  <SettingInput label="重叠大小" value="默认值（不建议修改）" muted />
+                  <SettingInput label="匹配度阈值" value="未设置" muted />
+                </div>
+              </div>
+
+              <div className="h-14 px-5 border-t border-slate-100 flex items-center justify-between bg-white shrink-0">
+                <button className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                  <SlidersHorizontal className="w-4 h-4" />
+                  高级设置
+                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setIsSettingsModalOpen(false)} className="px-3 py-1.5 rounded-md border border-slate-200 text-sm text-slate-700 hover:bg-slate-50">取消</button>
+                  <button onClick={() => setIsSettingsModalOpen(false)} className="px-3 py-1.5 rounded-md bg-emerald-500 text-sm font-medium text-white hover:bg-emerald-600">保存</button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* F-4 Import Dialog/Popup Overlay */}
       <AnimatePresence>
         {isImportModalOpen && (
@@ -675,3 +738,59 @@ export function KnowledgeBaseManager({ onBackToChat }: { onBackToChat: () => voi
     </div>
   );
 }
+function FieldLabel({ label }: { label: string }) {
+  return (
+    <label className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-800">
+      {label}
+      <Info className="w-3.5 h-3.5 text-slate-400" />
+    </label>
+  );
+}
+
+function SettingSelect({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div>
+      <FieldLabel label={label} />
+      <div className={`h-9 rounded-md border border-slate-200 px-3 flex items-center justify-between text-sm ${muted ? 'text-slate-400 bg-white' : 'text-slate-700 bg-white'}`}>
+        <span className="flex items-center gap-2 truncate">
+          {!muted && <Database className="w-4 h-4 text-blue-500" />}
+          {value}
+        </span>
+        <ChevronDown className="w-4 h-4 text-slate-300" />
+      </div>
+    </div>
+  );
+}
+
+function SettingInput({ label, value, muted = false, trailing }: { label: string; value: string; muted?: boolean; trailing?: ReactNode }) {
+  return (
+    <div>
+      <FieldLabel label={label} />
+      <div className={`h-9 rounded-md border border-slate-200 px-3 flex items-center justify-between text-sm ${muted ? 'text-slate-400' : 'text-slate-700'}`}>
+        <span>{value}</span>
+        {trailing}
+      </div>
+    </div>
+  );
+}
+
+function SettingSlider({ label, min, mid, value, max }: { label: string; min: string; mid: string; value: string; max: string }) {
+  return (
+    <div>
+      <FieldLabel label={label} />
+      <div className="pt-2">
+        <div className="relative h-2 rounded-full bg-slate-100">
+          <div className="absolute left-0 top-0 h-2 w-[18%] rounded-full bg-emerald-200" />
+          <div className="absolute left-[18%] top-1/2 h-4 w-4 -translate-y-1/2 rounded-full border-2 border-emerald-200 bg-white shadow" />
+        </div>
+        <div className="mt-2 grid grid-cols-4 text-xs text-slate-500">
+          <span>{min}</span>
+          <span>{mid}</span>
+          <span className="text-center">{value}</span>
+          <span className="text-right">{max}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+

@@ -54,6 +54,7 @@ Review or complete the v1.3 milestone.
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-14 | kb-settings-ui-polish | Add knowledge-base settings modal and align chat/KB headers | Added frontend-only KB settings dialog, unified chat header title/style, and reordered KB header actions. |
 | 2026-05-13 | kb-import-data-loss-fix | Fix knowledge-base import data loss after PDF upload | Prevented zero-document import from overwriting processed corpus, changed API import to merge via temp directory, restored processed corpus/index, and added regression tests for PDF-only and Markdown incremental imports. |
 | 2026-05-13 | kb-corpus-40-restore | Restore intended 40-PDF corpus and NVIDIA Q3 retrieval | Rebuilt raw/processed/index from `data/docs/source_documents`, restored 40 documents/9303 chunks, preserved full chunk content through retrieval/rerank, and added regression coverage for NVIDIA FY2026 Q3 revenue retrieval. |
 | 2026-05-14 | phase-15-table-chunking-facts | Imported table artifacts into processed chunks and generated local structured financial facts | Rebuilt 40-document corpus with 9303 text chunks, 4128 table chunks, 660 table_row chunks, 1558 facts, and passing backend regressions. |
