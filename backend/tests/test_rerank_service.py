@@ -2,6 +2,7 @@ from app.core.ingestion.fixture_loader import load_chunks
 from app.core.providers.embeddings import MockEmbeddingProvider
 from app.core.retrieval.hybrid import HybridRetriever
 from app.core.retrieval.rerank_service import RerankService
+from app.models.schemas import RetrievalResultItem
 
 
 class FailingRerankProvider:
@@ -62,3 +63,27 @@ def test_rerank_service_sends_bounded_context_not_preview_only():
     assert '公司：' in provider.documents[0]
     assert '内容：' in provider.documents[0]
     assert len(provider.documents[0]) <= 1200
+
+
+def test_rerank_alignment_penalizes_table_fact_when_requested_year_mismatches():
+    candidate = RetrievalResultItem(
+        chunk_id='fact-2026',
+        title='NVDA FY2026Q3',
+        doc_type='financial_report',
+        company='NVIDIA',
+        date='2025-11-19',
+        preview='Table fact: Revenue = 57,006 | period: FY2026 Q3',
+        score=1.0,
+        content='Table fact: Revenue = 57,006 | period: FY2026 Q3',
+        metadata={
+            'chunk_type': 'table_fact',
+            'metric': 'revenue',
+            'period_label': 'FY2026 Q3',
+            'source': 'NVDA_nvidia_10q_FY2026Q3_2025-11-19.pdf',
+            'fact_reasons': ['company', 'metric', 'source_year:2026'],
+        },
+    )
+
+    boost = RerankService._query_alignment_boost('英伟达2024年第三季度的总营收是多少？', candidate)
+
+    assert boost < 0

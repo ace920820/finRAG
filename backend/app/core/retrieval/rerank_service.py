@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from app.core.config import get_settings
 from app.core.providers.rerank import MockRerankProvider, build_rerank_provider
+from app.core.retrieval.table_facts import is_table_fact_period_compatible
 from app.models.schemas import RerankResultItem, RetrievalResultItem, ScoreSource
 
 
@@ -99,12 +100,20 @@ class RerankService:
         if any(term in query_lower for term in ("总营收", "营收", "收入", "revenue")) and "|" in haystack and "revenue" in haystack:
             boost += 3.0
         if metadata.get("chunk_type") == "table_fact":
-            boost += 10.0
             reasons = metadata.get("fact_reasons") or []
-            if "current_period" in reasons:
-                boost += 6.0
-            if "period_year:2024" in reasons or "period_year:2025" in reasons or "period_year:2026" in reasons:
-                boost += 5.0
+            if not is_table_fact_period_compatible(query, metadata):
+                boost -= 25.0
+                return boost
+            if "strict_period_match" in reasons:
+                boost += 10.0
+                if "current_period" in reasons:
+                    boost += 6.0
+                if "total_value" in reasons:
+                    boost += 6.0
+                if any(str(reason).startswith(("period_year:", "fiscal_year:")) for reason in reasons):
+                    boost += 5.0
+            else:
+                boost += 1.0
         elif metadata.get("chunk_type") in {"table_row", "table"} and any(term in query_lower for term in ("总营收", "营收", "收入", "revenue", "净利润", "net income")):
             boost += 4.0
         metric = str(metadata.get("metric") or "")

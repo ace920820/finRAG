@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 
@@ -8,7 +9,7 @@ from app.core.config import get_settings
 from app.core.providers.embeddings import build_embedding_provider
 from app.core.retrieval.bm25_store import BM25Result, BM25Store
 from app.core.retrieval.index_store import RetrievalIndexStore
-from app.core.retrieval.table_facts import query_table_facts
+from app.core.retrieval.table_facts import is_table_fact_period_compatible, is_table_metric_query, query_table_facts
 from app.core.retrieval.vector_store import VectorResult, VectorStore
 from app.models.schemas import RetrievalResultItem
 
@@ -91,7 +92,9 @@ class HybridRetriever:
             scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (self.rrf_k + rank)
             payloads[hit.chunk_id] = self._hit_to_payload(hit)
         for rank, hit in enumerate(supplemental_hits, start=1):
-            if getattr(hit, "metadata", {}).get("chunk_type") == "table_fact":
+            if getattr(hit, "metadata", {}).get("chunk_type") == "table_fact" and not is_table_fact_period_compatible(query, getattr(hit, "metadata", {})):
+                continue
+            if getattr(hit, "metadata", {}).get("chunk_type") == "table_fact" and "strict_period_match" in getattr(hit, "metadata", {}).get("fact_reasons", []):
                 supplemental_score = 0.55 + min(0.35, float(getattr(hit, "score", 0.0)) * 0.03) + 1.0 / (self.rrf_k + rank)
             else:
                 supplemental_score = 0.08 + min(0.25, float(getattr(hit, "score", 0.0)) * 0.03) + 1.0 / (self.rrf_k + rank)
@@ -163,6 +166,8 @@ class HybridRetriever:
         return results
 
     def _table_fact_hits(self, query: str, top_k: int) -> List[BM25Result]:
+        if not is_table_metric_query(query):
+            return []
         results: List[BM25Result] = []
         for match in query_table_facts(query, top_k=top_k):
             fact = match.fact
@@ -276,5 +281,5 @@ class HybridRetriever:
 
 
 def _date_from_source(source_name: str) -> str:
-    match = __import__("re").search(r"(20\d{2}-\d{2}-\d{2})", source_name)
+    match = re.search(r"(20\d{2}-\d{2}-\d{2})", source_name)
     return match.group(1) if match else "unknown"

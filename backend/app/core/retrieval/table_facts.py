@@ -13,7 +13,7 @@ COMPANY_ALIASES = {
     "NVIDIA": ("nvidia", "英伟达", "nvda"),
     "贵州茅台": ("贵州茅台", "茅台", "600519", "moutai"),
     "宁德时代": ("宁德时代", "catl", "300750"),
-    "台积电": ("台积电", "tsmc", "2330", "tsm"),
+    "台积电": ("台积电", "tsmc", "2330"),
 }
 METRIC_ALIASES = {
     "revenue": ("总营收", "营业收入", "营收", "收入", "revenue", "net revenue", "total revenue"),
@@ -23,10 +23,16 @@ METRIC_ALIASES = {
     "eps_diluted": ("eps", "每股收益", "diluted", "稀释"),
 }
 QUARTER_ALIASES = {
-    "q1": ("q1", "1q", "第一季度", "一季度"),
-    "q2": ("q2", "2q", "第二季度", "二季度"),
-    "q3": ("q3", "3q", "第三季度", "三季度", "前三季度"),
-    "q4": ("q4", "4q", "第四季度", "四季度"),
+    "q1": ("q1", "第一季度", "一季度"),
+    "q2": ("q2", "第二季度", "二季度"),
+    "q3": ("q3", "第三季度", "三季度", "前三季度"),
+    "q4": ("q4", "第四季度", "四季度"),
+}
+QUARTER_PERIOD_HINTS = {
+    "q1": ("first quarter", "three months ended", "第一季度", "一季度", "本报告期", "本期"),
+    "q2": ("second quarter", "three months ended", "第二季度", "二季度", "半年度", "本报告期", "本期"),
+    "q3": ("third quarter", "three months ended", "第三季度", "三季度", "本报告期", "本期"),
+    "q4": ("fourth quarter", "three months ended", "第四季度", "四季度", "年度", "本报告期", "本期"),
 }
 
 
@@ -55,8 +61,13 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
     if not requested_metric or not requested_companies:
         return []
     matches: list[TableFactMatch] = []
-    for fact in facts if facts is not None else load_table_facts():
+    fact_items = list(facts if facts is not None else load_table_facts())
+    total_metric_requested = any(term in lowered for term in ("总营收", "total revenue"))
+    for fact in fact_items:
         if fact.get("metric") != requested_metric:
+            continue
+        raw_value = str(fact.get("raw_value") or "")
+        if "%" in raw_value:
             continue
         score = 0.0
         reasons: list[str] = []
@@ -74,26 +85,43 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
         if fact.get("value") is not None:
             score += 0.5
             reasons.append("value")
-        raw_value = str(fact.get("raw_value") or "")
-        if "%" not in raw_value:
-            score += 0.2
+        score += 0.2
         metric_label = str(fact.get("metric_label") or "").lower()
-        if any(term in lowered for term in ("总营收", "total revenue")) and ("total" in metric_label or metric_label == "revenue"):
+        if total_metric_requested and ("total" in metric_label or metric_label == "revenue"):
             score += 1.0
             reasons.append("total_metric")
+        if total_metric_requested and _is_total_metric_fact(fact, fact_items):
+            score += 2.5
+            reasons.append("total_value")
+        year_matched = False
         for year in requested_years:
-            if year in str(fact.get("period_label") or ""):
+            if year in period_label:
                 score += 3.0
                 reasons.append(f"period_year:{year}")
-            elif year in haystack:
-                score += 1.0
-                reasons.append(f"source_year:{year}")
+                year_matched = True
+            elif f"fy{year}" in source_name.lower():
+                score += 3.0
+                reasons.append(f"fiscal_year:{year}")
+                year_matched = True
+        if requested_years and not year_matched:
+            continue
+        quarter_matched = False
         if requested_quarter and _quarter_matches(requested_quarter, haystack):
             score += 2.0
             reasons.append(f"quarter:{requested_quarter}")
-        if requested_quarter and _current_period_fact(fact, requested_quarter):
+            quarter_matched = True
+        current_period_matched = bool(
+            requested_quarter
+            and _current_period_fact(fact, requested_quarter)
+            and _is_latest_period_fact(fact, fact_items)
+        )
+        if current_period_matched:
             score += 3.0
             reasons.append("current_period")
+        if requested_quarter and not current_period_matched and "前三季度" not in query:
+            continue
+        if (not requested_years or year_matched) and (not requested_quarter or quarter_matched or current_period_matched):
+            reasons.append("strict_period_match")
         if requested_quarter == "q3" and "前三季度" in query and any(marker in haystack for marker in ("前三季度", "1-9", "nine months")):
             score += 1.5
             reasons.append("nine_months")
@@ -107,22 +135,96 @@ def is_table_metric_query(query: str) -> bool:
     return bool(_requested_metric(lowered) and _requested_companies(lowered))
 
 
+def is_table_fact_period_compatible(query: str, fact: dict[str, Any]) -> bool:
+    lowered = query.lower()
+    requested_years = set(re.findall(r"20\d{2}", lowered))
+    if not requested_years:
+        return True
+    haystack = " ".join(
+        str(fact.get(field) or "")
+        for field in ("period_label", "source_pdf_name", "source", "title", "date")
+    ).lower()
+    return any(year in haystack for year in requested_years)
+
+
+
+
+def _is_latest_period_fact(fact: dict[str, Any], facts: list[dict[str, Any]]) -> bool:
+    period_key = _period_sort_key(str(fact.get("period_label") or ""))
+    if period_key is None:
+        return True
+    comparable = [
+        _period_sort_key(str(other.get("period_label") or ""))
+        for other in facts
+        if other.get("table_id") == fact.get("table_id")
+        and other.get("metric") == fact.get("metric")
+        and str(other.get("metric_label") or "").lower() == str(fact.get("metric_label") or "").lower()
+        and "%" not in str(other.get("raw_value") or "")
+    ]
+    comparable = [item for item in comparable if item is not None]
+    return not comparable or period_key == max(comparable)
+
+
+def _period_sort_key(period_label: str) -> tuple[int, int, int] | None:
+    match = re.search(r"(20\d{2})", period_label)
+    if not match:
+        return None
+    year = int(match.group(1))
+    month = 0
+    day = 0
+    month_match = re.search(r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})", period_label.lower())
+    if month_match:
+        month_name = month_match.group(0).split()[0][:3]
+        month = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec").index(month_name) + 1
+        day = int(month_match.group(1))
+    return (year, month, day)
+
+def _is_total_metric_fact(fact: dict[str, Any], facts: list[dict[str, Any]]) -> bool:
+    metric_label = str(fact.get("metric_label") or "").lower()
+    if "total" in metric_label or "合计" in metric_label:
+        return True
+    if metric_label != "revenue":
+        return False
+    try:
+        column_index = int(fact.get("column_index") or 0)
+        row_index = int(fact.get("row_index") or 0)
+    except (TypeError, ValueError):
+        return False
+    same_group_columns = [
+        int(other.get("column_index") or 0)
+        for other in facts
+        if other.get("table_id") == fact.get("table_id")
+        and other.get("metric") == fact.get("metric")
+        and str(other.get("metric_label") or "").lower() == metric_label
+        and int(other.get("row_index") or 0) == row_index
+        and str(other.get("period_label") or "") == str(fact.get("period_label") or "")
+        and "%" not in str(other.get("raw_value") or "")
+    ]
+    return bool(same_group_columns) and column_index == max(same_group_columns)
+
 def _requested_companies(lowered_query: str) -> list[str]:
-    return [company for company, aliases in COMPANY_ALIASES.items() if any(alias in lowered_query for alias in aliases)]
+    return [company for company, aliases in COMPANY_ALIASES.items() if any(_term_in_query(alias, lowered_query) for alias in aliases)]
 
 
 def _requested_metric(lowered_query: str) -> str | None:
     for metric, aliases in METRIC_ALIASES.items():
-        if any(alias in lowered_query for alias in aliases):
+        if any(_term_in_query(alias, lowered_query) for alias in aliases):
             return metric
     return None
 
 
 def _requested_quarter(lowered_query: str) -> str | None:
     for quarter, aliases in QUARTER_ALIASES.items():
-        if any(alias in lowered_query for alias in aliases):
+        if any(_term_in_query(alias, lowered_query) for alias in aliases):
             return quarter
     return None
+
+
+def _term_in_query(term: str, lowered_query: str) -> bool:
+    lowered_term = term.lower()
+    if lowered_term.isascii() and lowered_term.replace("_", "").isalnum():
+        return re.search(rf"(?<![a-z0-9]){re.escape(lowered_term)}(?![a-z0-9])", lowered_query) is not None
+    return lowered_term in lowered_query
 
 
 def _company_matches(company: str, source_name: str, requested: str) -> bool:
@@ -137,35 +239,40 @@ def _quarter_matches(quarter: str, haystack: str) -> bool:
     aliases = QUARTER_ALIASES.get(quarter, ())
     if any(alias in haystack for alias in aliases):
         return True
-    if quarter == "q3":
-        return any(marker in haystack for marker in ("third quarter", "three months ended", "nine months ended", "前三季度", "1-9月"))
-    return False
+    return any(marker in haystack for marker in QUARTER_PERIOD_HINTS.get(quarter, ()))
 
 
 def _current_period_fact(fact: dict[str, Any], requested_quarter: str) -> bool:
     if requested_quarter not in str(fact.get("source_pdf_name") or "").lower():
         return False
-    if str(fact.get("metric_label") or "").lower() not in {"revenue", "total revenue", "营业收入", "一、营业总收入"}:
+    if fact.get("metric") != "revenue":
         return False
-    column_index = int(fact.get("column_index") or 0)
     raw_value = str(fact.get("raw_value") or "")
-    if requested_quarter == "q3":
-        row_index = int(fact.get("row_index") or 0)
-        metric_label = str(fact.get("metric_label") or "").lower()
-        return ((row_index == 0 and metric_label == "revenue" and column_index == 6) or (metric_label == "total revenue" and column_index == 2)) and "%" not in raw_value
-    return "%" not in raw_value
+    if "%" in raw_value:
+        return False
+    period_label = str(fact.get("period_label") or "").lower()
+    metric_label = str(fact.get("metric_label") or "").lower()
+    if requested_quarter == "q3" and "前三季度" in period_label:
+        return False
+    if any(marker in period_label for marker in QUARTER_PERIOD_HINTS.get(requested_quarter, ())):
+        return True
+    if metric_label in {"revenue", "total revenue", "营业收入", "一、营业总收入"} and period_label in {"本期", "本报告期"}:
+        return True
+    return False
 
 
-def _fact_sort_key(fact: dict[str, Any], requested_quarter: str | None) -> tuple[int, int, str, str, str, int]:
+def _fact_sort_key(fact: dict[str, Any], requested_quarter: str | None) -> tuple[int, int, int, str, str, str, int]:
     source_name = str(fact.get("source_pdf_name") or "")
     period_label = str(fact.get("period_label") or "")
     metric_label = str(fact.get("metric_label") or "").lower()
     row_index = int(fact.get("row_index") or 0)
     current_rank = 0 if requested_quarter and _current_period_fact(fact, requested_quarter) else 1
     metric_rank = 0 if row_index == 0 and metric_label == "revenue" else 1 if metric_label == "total revenue" else 2
+    pct_rank = 1 if "%" in str(fact.get("raw_value") or "") else 0
     return (
         current_rank,
         metric_rank,
+        pct_rank,
         source_name,
         period_label,
         str(fact.get("fact_id") or ""),

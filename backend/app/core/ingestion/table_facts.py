@@ -86,13 +86,18 @@ def extract_table_facts(*, raw_frontmatter: dict[str, str], document: Document, 
     currency = _infer_currency(document, table_artifact.table)
     unit = _infer_unit(document, table_artifact.table)
 
+    active_period_label = _left_filled_period_label(headers, 0)
     for row_index, row in enumerate(rows):
         label = _row_label(row)
         metric = normalize_metric(label)
+        row_period = _period_label_from_row(row)
         if metric is None:
+            if row_period:
+                active_period_label = row_period
             continue
         for column_index, raw_value in _numeric_cells(row):
             value = parse_number(raw_value)
+            period_label = _period_label_for_cell(headers, column_index, active_period_label)
             fact_seed = ":".join(
                 [document.doc_id, table_id, metric, str(row_index), str(column_index), str(raw_value)]
             )
@@ -109,7 +114,7 @@ def extract_table_facts(*, raw_frontmatter: dict[str, str], document: Document, 
                     "statement_type": _statement_type(table_artifact.table, label),
                     "metric": metric,
                     "metric_label": label,
-                    "period_label": headers[column_index] if column_index < len(headers) else f"column_{column_index + 1}",
+                    "period_label": period_label or f"column_{column_index + 1}",
                     "value": value,
                     "raw_value": str(raw_value),
                     "unit": unit,
@@ -122,6 +127,57 @@ def extract_table_facts(*, raw_frontmatter: dict[str, str], document: Document, 
             )
     return facts
 
+
+
+def _period_label_for_cell(headers: list[str], column_index: int, active_period_label: str) -> str:
+    if active_period_label:
+        return active_period_label
+    direct = headers[column_index].strip() if column_index < len(headers) else ""
+    if _looks_like_period_label(direct):
+        return direct
+    return _left_filled_period_label(headers, column_index)
+
+
+def _left_filled_period_label(headers: list[str], column_index: int) -> str:
+    upper = min(column_index, len(headers) - 1)
+    for index in range(upper, -1, -1):
+        label = headers[index].strip()
+        if _looks_like_period_label(label):
+            return label
+    return ""
+
+
+def _period_label_from_row(row: list[str]) -> str:
+    non_empty = [cell.strip() for cell in row if cell.strip()]
+    if len(non_empty) != 1:
+        return ""
+    label = non_empty[0]
+    return label if _looks_like_period_label(label) else ""
+
+
+def _looks_like_period_label(label: str) -> bool:
+    lowered = label.lower()
+    if not lowered:
+        return False
+    return any(
+        marker in lowered
+        for marker in (
+            "three months ended",
+            "nine months ended",
+            "six months ended",
+            "year ended",
+            "quarter",
+            "年度",
+            "本期",
+            "本报告期",
+            "第一季度",
+            "第二季度",
+            "第三季度",
+            "第四季度",
+            "半年度",
+            "前三季度",
+        )
+    ) or re.search(r"20\d{2}年", label) is not None
 
 def normalize_metric(label: str) -> str | None:
     lowered = label.lower().replace("：", "").strip()

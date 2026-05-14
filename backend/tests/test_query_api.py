@@ -3,6 +3,7 @@ import json
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from app.models.schemas import RetrievalResultItem
 
 
 def _parse_sse(body: str):
@@ -74,7 +75,37 @@ def test_query_endpoint_rejects_invalid_body():
     assert response.status_code == 422
 
 
-def test_query_endpoint_returns_table_fact_metadata_for_nvidia_revenue():
+def test_query_endpoint_returns_table_fact_metadata_for_nvidia_revenue(monkeypatch):
+    table_fact = RetrievalResultItem(
+        chunk_id="fact-nvda-q3-revenue",
+        title="NVDA_nvidia_10q_FY2026Q3_2025-11-19.pdf",
+        doc_type="financial_report",
+        company="NVIDIA",
+        date="2025-11-19",
+        page=21,
+        preview="Table fact: Revenue = 57,006",
+        score=0.9,
+        content="Table fact: Revenue = 57,006 | period: FY2026 Q3 three months ended",
+        metadata={
+            "chunk_type": "table_fact",
+            "metric": "revenue",
+            "raw_value": "57,006",
+            "table_id": "tbl-income",
+            "fact_reasons": ["strict_period_match", "current_period", "period_year:2026"],
+        },
+    )
+
+    class FakeRetrievalResult:
+        bm25_results = [table_fact]
+        vector_results = [table_fact]
+        fused_top20 = [table_fact]
+
+    class FakeRetriever:
+        def retrieve(self, query):
+            return FakeRetrievalResult()
+
+    monkeypatch.setattr("app.api.query.HybridRetriever.load_default", lambda: FakeRetriever())
+
     client = TestClient(create_app())
     response = client.post('/api/query', json={'query': '英伟达2026年第三季度的总营收是多少？'})
 
