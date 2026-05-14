@@ -35,6 +35,14 @@ body {
 .markdown-override p {
   margin-bottom: 0.75rem;
 }
+.markdown-override {
+  overflow-wrap: anywhere;
+}
+.markdown-override pre,
+.markdown-override code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .markdown-override ul {
   list-style-type: decimal;
   margin-left: 1.25rem;

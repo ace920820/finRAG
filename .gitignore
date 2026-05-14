@@ -36,6 +36,7 @@ backend/app/data/processed/*.json
 backend/app/data/source_documents/
 backend/backend/
 data/
+*.zip
 
 # External/local helper project copy
 pdf2md/

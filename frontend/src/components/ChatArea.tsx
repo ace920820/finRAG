@@ -81,7 +81,7 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, activeAssi
               <>
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0 text-white font-bold">AI</div>
                 <div
-                  className={clsx('flex-1 space-y-4 rounded-xl p-1 transition-colors cursor-pointer', activeAssistantId === msg.id && 'bg-blue-50/40')}
+                  className={clsx('min-w-0 flex-1 space-y-4 rounded-xl p-1 transition-colors cursor-pointer', activeAssistantId === msg.id && 'bg-blue-50/40')}
                   onClick={() => onAssistantSelect(msg.id)}
                 >
                 {/* Stages tracking */}
@@ -94,7 +94,7 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, activeAssi
                       duration="0.4s"
                     >
                       {msg.queryRewrite && (
-                        <div className="text-[10px] text-slate-500 mt-1">
+                        <div className="text-[10px] text-slate-500 mt-1 break-words">
                           检索关键词：{msg.queryRewrite.join('、')}
                         </div>
                       )}
@@ -126,7 +126,7 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, activeAssi
                 {/* Markdown content */}
                 {(['generate', 'done'].includes(msg.stage!) || msg.content) && (
                   <>
-                    <div className="prose prose-sm prose-slate max-w-none text-slate-700 leading-relaxed markdown-override">
+                    <div className="prose prose-sm prose-slate max-w-none min-w-0 text-slate-700 leading-relaxed break-words markdown-override">
                       <ReactMarkdown 
                         rehypePlugins={[rehypeRaw]}
                         components={{
@@ -225,7 +225,7 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, activeAssi
 
 function renderCitationMarkup(message: Message): string {
   const citations = message.retrievalSnapshot?.citations;
-  let content = message.content.replace(/<sup>\s*\[citation_id not found\]\s*<\/sup>/gi, '');
+  let content = normalizeEscapedCitationHtml(unwrapMarkdownFence(message.content)).replace(/<sup>\s*\[citation_id not found\]\s*<\/sup>/gi, '');
   if (!citations) return content;
 
   content = content.replace(
@@ -241,6 +241,18 @@ function renderCitationMarkup(message: Message): string {
     (match, id) => renderCitationSpan(citations, id, match),
   );
   return content.replace(/\[(\d+)\]/g, (match, id) => renderCitationSpan(citations, id, match));
+}
+
+function unwrapMarkdownFence(content: string): string {
+  const match = content.trim().match(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```\s*$/i);
+  return match ? match[1].trim() : content;
+}
+
+function normalizeEscapedCitationHtml(content: string): string {
+  return content
+    .replace(/<sup>\s*<span\s+class=\\(["'])cite\\\1\s+data-id=\\(["'])(\d+)\\\2\s*>\s*\[?(\d+)\]?\s*<\\\/span>\s*<\\\/sup>/gi, '<sup><span class="cite" data-id="$3">$4</span></sup>')
+    .replace(/<span\s+class=\\(["'])cite\\\1\s+data-id=\\(["'])(\d+)\\\2\s*>\s*\[?(\d+)\]?\s*<\\\/span>/gi, '<span class="cite" data-id="$3">$4</span>')
+    .replace(/<\\\/sup>/gi, '</sup>');
 }
 
 function renderCitationSpan(citations: Record<string, unknown>, id: string, fallback: string): string {
