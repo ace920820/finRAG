@@ -46,7 +46,7 @@ class QueryWorkflow:
         evidence = []
         try:
             logger.info("retrieval started")
-            retrieval_result = self.retriever.retrieve(_retrieval_query(rewrite))
+            retrieval_result = self.retriever.retrieve(retrieval_query(rewrite))
             logger.info(
                 "retrieval complete bm25=%d vector=%d fused=%d",
                 len(retrieval_result.bm25_results),
@@ -78,10 +78,10 @@ class QueryWorkflow:
         logger.info("generation started evidence=%d", len(evidence))
         answer = self.generator.generate(request.query, intent, evidence)
         logger.info("generation complete chars=%d", len(answer))
-        citations = _build_citations(evidence)
+        citations = build_citations(evidence)
         done = DoneEvent(
             latency_ms=max(1, int((time.perf_counter() - started_at) * 1000)),
-            total_tokens=_estimate_tokens(answer),
+            total_tokens=estimate_tokens(answer),
             citations=citations,
         )
         return QueryWorkflowResult(
@@ -96,12 +96,12 @@ class QueryWorkflow:
         )
 
 
-def _retrieval_query(rewrite: QueryRewriteEvent) -> str:
+def retrieval_query(rewrite: QueryRewriteEvent) -> str:
     parts = [rewrite.original] + rewrite.expanded[:8] + rewrite.sub_queries[:2]
     return " ".join(part for part in parts if part)
 
 
-def _build_citations(items) -> Dict[str, CitationMetadata]:
+def build_citations(items) -> Dict[str, CitationMetadata]:
     citations: Dict[str, CitationMetadata] = {}
     for item in items:
         citations[str(item.citation_id)] = CitationMetadata(
@@ -117,5 +117,5 @@ def _build_citations(items) -> Dict[str, CitationMetadata]:
     return citations
 
 
-def _estimate_tokens(text: str) -> int:
+def estimate_tokens(text: str) -> int:
     return max(1, len(text) // 2)

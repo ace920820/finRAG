@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from app.core.ingestion.chunker import chunk_text
 from app.core.ingestion.corpus_importer import ImportDefaults, import_corpus
 from app.core.ingestion.raw_loader import discover_raw_inputs, parse_raw_document
@@ -57,11 +59,30 @@ def test_discover_raw_inputs_supports_extracted_and_manual_text(tmp_path):
     (extracted / "a.md").write_text("正文", encoding="utf-8")
     (manual / "b.txt").write_text("补充新闻", encoding="utf-8")
     (manual / "._junk.md").write_text("junk", encoding="utf-8")
-    (manual / "ignore.pdf").write_text("pdf", encoding="utf-8")
 
     paths = discover_raw_inputs(raw_root, collection_name="reports")
 
     assert [path.name for path in paths] == ["a.md", "b.txt"]
+
+
+def test_discover_raw_inputs_rejects_unsafe_collection_name(tmp_path):
+    with pytest.raises(ValueError, match="collection_name"):
+        discover_raw_inputs(tmp_path / "raw", collection_name="../outside")
+
+
+
+def test_discover_raw_inputs_excludes_meta_manifests(tmp_path):
+    raw_root = tmp_path / "raw"
+    extracted = raw_root / "extracted" / "reports"
+    meta = raw_root / "_meta"
+    extracted.mkdir(parents=True)
+    meta.mkdir(parents=True)
+    (extracted / "report.md").write_text("正文", encoding="utf-8")
+    (meta / "reports-extraction-manifest.md").write_text("# Manifest", encoding="utf-8")
+
+    paths = discover_raw_inputs(raw_root)
+
+    assert [path.name for path in paths] == ["report.md"]
 
 
 def test_chunk_text_preserves_page_markers_and_order():
@@ -166,3 +187,19 @@ def test_import_corpus_infers_company_doc_type_and_date_from_pdf_path(tmp_path):
     assert document.company_aliases == ["NVDA"]
     assert document.doc_type == "financial_report"
     assert document.date == "2026-02-25"
+
+def test_import_corpus_rejects_empty_inputs_without_overwriting_existing_processed_files(tmp_path):
+    raw_root = tmp_path / "raw"
+    processed_dir = tmp_path / "processed"
+    processed_dir.mkdir()
+    documents_path = processed_dir / "documents.json"
+    chunks_path = processed_dir / "chunks.json"
+    documents_path.write_text('[{"doc_id":"existing"}]', encoding="utf-8")
+    chunks_path.write_text('[{"chunk_id":"existing-c1"}]', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="No raw input documents"):
+        import_corpus(raw_root=raw_root, processed_dir=processed_dir, collection_name="missing")
+
+    assert documents_path.read_text(encoding="utf-8") == '[{"doc_id":"existing"}]'
+    assert chunks_path.read_text(encoding="utf-8") == '[{"chunk_id":"existing-c1"}]'
+

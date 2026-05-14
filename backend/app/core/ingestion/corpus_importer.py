@@ -51,7 +51,11 @@ def import_corpus(
 ) -> ImportResult:
     defaults = defaults or ImportDefaults()
     raw_documents = load_raw_documents(raw_root=raw_root, collection_name=collection_name, source_dir=source_dir)
+    if not raw_documents:
+        raise ValueError("No raw input documents found; processed corpus was left unchanged.")
     documents, chunks = build_processed_records(raw_documents, defaults=defaults, target_chars=target_chars)
+    if not documents:
+        raise ValueError("Import produced zero documents; processed corpus was left unchanged.")
     processed_dir.mkdir(parents=True, exist_ok=True)
     documents_path = processed_dir / "documents.json"
     chunks_path = processed_dir / "chunks.json"

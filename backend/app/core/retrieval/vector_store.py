@@ -7,6 +7,7 @@ from typing import Optional, Dict, List, Sequence
 
 import numpy as np
 
+from app.core.config import get_settings
 from app.core.providers.embeddings import MockEmbeddingProvider, build_embedding_provider
 from app.models.schemas import Chunk
 
@@ -26,23 +27,39 @@ class VectorResult:
 
 
 class VectorStore:
-    def __init__(self, chunks: Sequence[Chunk], vectors: Sequence[Sequence[float]]):
+    def __init__(
+        self,
+        chunks: Sequence[Chunk],
+        vectors: Sequence[Sequence[float]],
+        provenance: Optional[Dict[str, object]] = None,
+    ):
         self.chunks = list(chunks)
         self.vectors = np.asarray(list(vectors), dtype=float) if vectors else np.zeros((0, 0), dtype=float)
         if self.vectors.size:
             norms = np.linalg.norm(self.vectors, axis=1, keepdims=True)
             norms[norms == 0] = 1.0
             self.vectors = self.vectors / norms
+        self.provenance: Dict[str, object] = dict(provenance or {})
+
+    @property
+    def dimension(self) -> int:
+        if self.vectors.size == 0:
+            return 0
+        return int(self.vectors.shape[1])
 
     @classmethod
     def from_chunks(cls, chunks: Sequence[Chunk], embedding_provider=None) -> "VectorStore":
         provider = embedding_provider or MockEmbeddingProvider()
         vectors = provider.embed_texts([chunk.content for chunk in chunks])
-        return cls(chunks, vectors)
+        provenance = _provider_provenance(provider)
+        if vectors:
+            provenance["dimension"] = len(vectors[0])
+        return cls(chunks, vectors, provenance=provenance)
 
     def save(self, index_dir: Path) -> None:
         index_dir.mkdir(parents=True, exist_ok=True)
         payload = {
+            "provenance": {**self.provenance, "dimension": self.dimension},
             "chunks": [chunk.model_dump() for chunk in self.chunks],
             "vectors": self.vectors.tolist(),
         }
@@ -56,7 +73,8 @@ class VectorStore:
         payload = json.loads(path.read_text(encoding="utf-8"))
         chunks = [Chunk(**item) for item in payload.get("chunks", [])]
         vectors = payload.get("vectors", [])
-        return cls(chunks, vectors)
+        provenance = payload.get("provenance") or {}
+        return cls(chunks, vectors, provenance=provenance)
 
     def search(self, query: str, top_k: int = 20, embedding_provider=None) -> List[VectorResult]:
         if not self.chunks or self.vectors.size == 0:
@@ -66,9 +84,13 @@ class VectorStore:
         if query_vector.size == 0:
             return []
         if query_vector.size != self.vectors.shape[1]:
+            built_provider = self.provenance.get("provider") if self.provenance else None
+            built_model = self.provenance.get("model") if self.provenance else None
             raise ValueError(
-                f"Query embedding dimension {query_vector.size} does not match index dimension {self.vectors.shape[1]}. "
-                "Rebuild the vector index with the active embedding provider."
+                f"Vector index dimension mismatch: query={query_vector.size}, index={self.vectors.shape[1]} "
+                f"(index built with provider={built_provider!r}, model={built_model!r}). "
+                "Rebuild the vector index with the active embedding provider, or revert "
+                "FINRAG_EMBEDDING_PROVIDER to match the persisted index."
             )
         query_norm = np.linalg.norm(query_vector)
         if query_norm == 0:
@@ -103,3 +125,14 @@ class VectorStore:
     def fallback_from_chunks(chunks: Sequence[Chunk]) -> "VectorStore":
         provider = MockEmbeddingProvider()
         return VectorStore.from_chunks(chunks, provider)
+
+
+def _provider_provenance(provider) -> Dict[str, object]:
+    settings = get_settings()
+    name = type(provider).__name__
+    if "Mock" in name:
+        return {"provider": "mock", "model": "mock"}
+    return {
+        "provider": settings.embedding_provider,
+        "model": getattr(provider, "model", settings.embedding_model),
+    }

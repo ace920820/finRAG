@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 
@@ -11,11 +12,16 @@ from app.core.retrieval.vector_store import VectorResult, VectorStore
 from app.models.schemas import RetrievalResultItem
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass(frozen=True)
 class HybridRetrievalResult:
     bm25_results: List[RetrievalResultItem]
     vector_results: List[RetrievalResultItem]
     fused_top20: List[RetrievalResultItem]
+    bm25_error: Optional[str] = None
+    vector_error: Optional[str] = None
 
 
 class HybridRetriever:
@@ -38,14 +44,32 @@ class HybridRetriever:
 
     def retrieve(self, query: str, top_k: Optional[int] = None) -> HybridRetrievalResult:
         limit = top_k or self.settings.retrieval_top_k
-        bm25_hits = self.bm25_store.search(query, top_k=limit)
-        vector_hits = self.vector_store.search(query, top_k=limit)
-        supplemental_hits = self._supplemental_hits(query, top_k=limit)
+        bm25_hits: List[BM25Result] = []
+        vector_hits: List[VectorResult] = []
+        bm25_error: Optional[str] = None
+        vector_error: Optional[str] = None
+        try:
+            bm25_hits = self.bm25_store.search(query, top_k=limit)
+        except Exception as exc:
+            bm25_error = str(exc)
+            logger.exception("bm25 search failed")
+        try:
+            vector_hits = self.vector_store.search(query, top_k=limit)
+        except Exception as exc:
+            vector_error = str(exc)
+            logger.exception("vector search failed")
+        try:
+            supplemental_hits = self._supplemental_hits(query, top_k=limit)
+        except Exception:
+            logger.exception("supplemental hits failed")
+            supplemental_hits = []
         fused_hits = self._rrf_fuse(query, bm25_hits, vector_hits, supplemental_hits, top_k=limit)
         return HybridRetrievalResult(
             bm25_results=[self._to_result(hit, rank + 1) for rank, hit in enumerate(bm25_hits)],
             vector_results=[self._to_result(hit, rank + 1) for rank, hit in enumerate(vector_hits)],
             fused_top20=[self._to_result(hit, rank + 1) for rank, hit in enumerate(fused_hits)],
+            bm25_error=bm25_error,
+            vector_error=vector_error,
         )
 
     def _rrf_fuse(

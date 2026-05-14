@@ -36,13 +36,14 @@ def main() -> int:
         print("Fixture-only validation passed")
         return 0
 
+    os.environ["FINRAG_PROCESSED_DATA_DIR"] = str(args.processed_dir.resolve())
+    os.environ["FINRAG_INDEX_DIR"] = str(args.index_dir.resolve())
+
     from app.core.config import get_settings
     from app.core.ingestion.fixture_loader import _processed_dir
     from app.core.retrieval.index_store import RetrievalIndexStore
 
-    settings = get_settings()
-    settings.processed_data_dir = args.processed_dir
-    settings.index_dir = args.index_dir
+    get_settings.cache_clear()
     _processed_dir.cache_clear()
 
     index_store = RetrievalIndexStore.load_or_build(force_rebuild=True)

@@ -31,6 +31,8 @@ coverage/
 
 # Local/generated data
 backend/app/data/raw/
+backend/app/data/index/
+backend/app/data/processed/*.json
 backend/app/data/source_documents/
 backend/backend/
 data/

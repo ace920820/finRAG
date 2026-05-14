@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 
 from app.core.agent.generator import AnswerGenerator
 from app.core.agent.query_analysis import analyze_query
-from app.core.agent.workflow import _build_citations, _estimate_tokens, _retrieval_query
+from app.core.agent.workflow import build_citations, estimate_tokens, retrieval_query
 from app.core.retrieval.hybrid import HybridRetriever
 from app.core.retrieval.rerank_service import RerankService
 from app.core.sse import format_sse_error, format_sse_event, format_sse_ping, split_markdown_chunks
@@ -29,13 +29,13 @@ def query(request: QueryRequest) -> StreamingResponse:
             yield format_sse_event("query_rewrite", rewrite)
             yield format_sse_event("intent_detected", intent)
 
-            retrieval = RetrievalCompleteEvent()
-            rerank = RerankCompleteEvent()
+            retrieval_emitted = False
+            rerank_emitted = False
             evidence = []
             try:
                 logger.info("retrieval started")
                 retriever = HybridRetriever.load_default()
-                retrieval_result = retriever.retrieve(_retrieval_query(rewrite))
+                retrieval_result = retriever.retrieve(retrieval_query(rewrite))
                 logger.info(
                     "retrieval complete bm25=%d vector=%d fused=%d",
                     len(retrieval_result.bm25_results),
@@ -48,6 +48,7 @@ def query(request: QueryRequest) -> StreamingResponse:
                     fused_top20=retrieval_result.fused_top20,
                 )
                 yield format_sse_event("retrieval_complete", retrieval)
+                retrieval_emitted = True
 
                 logger.info("rerank started candidates=%d", len(retrieval_result.fused_top20))
                 rerank_result = RerankService().rerank(request.query, retrieval_result.fused_top20)
@@ -60,15 +61,17 @@ def query(request: QueryRequest) -> StreamingResponse:
                 )
                 evidence = rerank_result.top5
                 yield format_sse_event("rerank_complete", rerank)
+                rerank_emitted = True
             except Exception as exc:
                 logger.exception("retrieval/rerank degraded")
-                yield format_sse_event("retrieval_complete", retrieval)
-                yield format_sse_event("rerank_complete", RerankCompleteEvent(
-                    top5=rerank.top5,
-                    degraded=True,
-                    fallback_reason=str(exc),
-                    score_source="hybrid_fusion",
-                ))
+                if not retrieval_emitted:
+                    yield format_sse_event("retrieval_complete", RetrievalCompleteEvent())
+                if not rerank_emitted:
+                    yield format_sse_event("rerank_complete", RerankCompleteEvent(
+                        degraded=True,
+                        fallback_reason=str(exc),
+                        score_source="hybrid_fusion",
+                    ))
                 yield format_sse_error("RETRIEVAL_DEGRADED", str(exc))
 
             logger.info("generation started evidence=%d", len(evidence))
@@ -80,8 +83,8 @@ def query(request: QueryRequest) -> StreamingResponse:
                 yield format_sse_event("answer_chunk", {"text": chunk, "is_final": index == len(chunks) - 1})
             yield format_sse_event("done", DoneEvent(
                 latency_ms=max(1, int((time.perf_counter() - started_at) * 1000)),
-                total_tokens=_estimate_tokens(answer_text),
-                citations=_build_citations(evidence),
+                total_tokens=estimate_tokens(answer_text),
+                citations=build_citations(evidence),
             ))
         except Exception as exc:  # pragma: no cover - defensive route-level guard
             yield format_sse_error("QUERY_FAILED", str(exc))

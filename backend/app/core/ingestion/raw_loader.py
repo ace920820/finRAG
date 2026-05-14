@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 from typing import Any, Iterable
+
+
+COLLECTION_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 try:
@@ -22,12 +26,15 @@ class RawDocument:
 
 
 def discover_raw_inputs(raw_root: Path, collection_name: str | None = None, source_dir: Path | None = None) -> list[Path]:
+    _validate_collection_name(collection_name)
     roots = _candidate_roots(raw_root, collection_name, source_dir)
     paths: list[Path] = []
     for root in roots:
         if not root.exists() or not root.is_dir():
             continue
         for path in root.rglob("*"):
+            if "_meta" in path.parts:
+                continue
             if not path.is_file():
                 continue
             if path.name.startswith("._"):
@@ -71,7 +78,13 @@ def _candidate_roots(raw_root: Path, collection_name: str | None, source_dir: Pa
         return
     yield raw_root / "extracted"
     yield raw_root / "manual"
-    yield raw_root
+
+
+def _validate_collection_name(collection_name: str | None) -> None:
+    if collection_name is None:
+        return
+    if not COLLECTION_NAME_RE.fullmatch(collection_name):
+        raise ValueError("collection_name must contain only letters, numbers, hyphen, or underscore")
 
 
 def _collection_for_path(path: Path, raw_root: Path, collection_name: str | None) -> str | None:

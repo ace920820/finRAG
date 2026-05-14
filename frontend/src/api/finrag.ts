@@ -162,14 +162,16 @@ export async function streamQuery(query: string, handlers: StreamQueryHandlers, 
 }
 
 export function mapRetrievalResults(items: BackendRetrievalResultItem[]): Document[] {
-  return items.map(item => ({
+  // RRF-fused scores are typically small reciprocal-rank sums (~0.01-0.05),
+  // so a fixed score threshold rarely triggers. Mark the top 2 by rank instead.
+  return items.map((item, index) => ({
     id: item.chunk_id,
     title: item.title,
     type: mapDocType(item.doc_type),
     source: formatSource(item.page, item.date, item.company),
     score: item.score,
     contentSnippet: item.preview,
-    isHigh: item.score >= 0.85,
+    isHigh: index < 2,
   }));
 }
 

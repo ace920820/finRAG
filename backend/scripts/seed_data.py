@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parents[1] / "app" / "data" / "processed"
+_DEFAULT_BASE_DIR = Path(__file__).resolve().parents[1] / "app" / "data" / "processed"
+BASE_DIR = Path(os.environ.get("FINRAG_PROCESSED_DATA_DIR") or _DEFAULT_BASE_DIR)
 
 DOCUMENTS = [
     {
