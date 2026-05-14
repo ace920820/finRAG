@@ -54,6 +54,7 @@ Review or complete the v1.3 milestone.
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-14 | frontend-markdown-citation-rendering | Fix frontend Markdown and citation rendering for mixed citation formats | Normalized model-emitted citation HTML/superscript/plain markers, removed invalid citation placeholders, and preserved clickable citation spans. |
 | 2026-05-14 | kb-settings-ui-polish | Add knowledge-base settings modal and align chat/KB headers | Added frontend-only KB settings dialog, unified chat header title/style, and reordered KB header actions. |
 | 2026-05-14 | silicon-index-rebuild | Rebuild vector index with SiliconFlow BAAI/bge-m3 | Rebuilt 14091 vectors with provider `silicon`, model `BAAI/bge-m3`, dimension 1024; query smoke test passed. |
 | 2026-05-14 | silicon-provider-support | Add SiliconFlow embedding/rerank provider support | Added `silicon` provider config, SiliconFlow embedding/rerank clients, env/docs updates, and provider regression tests. |

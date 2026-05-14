@@ -225,11 +225,27 @@ export function ChatArea({ messages, onSendMessage, activeCitationId, activeAssi
 
 function renderCitationMarkup(message: Message): string {
   const citations = message.retrievalSnapshot?.citations;
-  if (!citations) return message.content;
-  return message.content.replace(/\[(\d+)\]/g, (match, id) => {
-    if (!Object.prototype.hasOwnProperty.call(citations, id)) return match;
-    return `<span class="cite" data-id="${id}">${id}</span>`;
-  });
+  let content = message.content.replace(/<sup>\s*\[citation_id not found\]\s*<\/sup>/gi, '');
+  if (!citations) return content;
+
+  content = content.replace(
+    /<span\s+class=["']cite["']\s+data-id=["'](\d+)["']\s*>\s*\[?(\d+)\]?\s*<\/span>/gi,
+    (match, id) => renderCitationSpan(citations, id, match),
+  );
+  content = content.replace(
+    /<sup>\s*<span\s+class=["']cite["']\s+data-id=["'](\d+)["']\s*>\s*\[?(\d+)\]?\s*<\/span>\s*<\/sup>/gi,
+    (match, id) => renderCitationSpan(citations, id, match),
+  );
+  content = content.replace(
+    /<sup>\s*\[?(\d+)\]?\s*<\/sup>/g,
+    (match, id) => renderCitationSpan(citations, id, match),
+  );
+  return content.replace(/\[(\d+)\]/g, (match, id) => renderCitationSpan(citations, id, match));
+}
+
+function renderCitationSpan(citations: Record<string, unknown>, id: string, fallback: string): string {
+  if (!Object.prototype.hasOwnProperty.call(citations, id)) return fallback;
+  return `<span class="cite" data-id="${id}">${id}</span>`;
 }
 
 function StageItem({ title, active, done, duration, children }: { title: string, active: boolean, done: boolean, duration: string, children?: React.ReactNode }) {
