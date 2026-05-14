@@ -1,9 +1,9 @@
 # FinRAG 面试讲解指南
 
-> 适用对象：Jamie 面试前快速理解、复盘和背诵。  
-> 项目路径：`/Volumes/KINGSTON/projects/finRAG`  
-> 文档定位：这不是 README，而是一份“面试怎么讲”的讲稿 + 追问答法。  
-> 重要原则：下面会明确区分 **已实现**、**设计意图**、**下一步优化**，不要把当前 mock provider 或待完善能力说成生产级能力。
+> 适用对象：Jamie 面试前快速理解、复盘和背诵。
+> 项目路径：`/Volumes/KINGSTON/projects/finRAG`
+> 文档定位：这不是 README，而是一份“面试怎么讲”的讲稿 + 追问答法。
+> 重要原则：下面会明确区分 **当前 live provider 配置**、**离线 mock fallback / 测试能力**、**设计意图**、**下一步优化**。当前仓库 `backend/.env` 已配置为 Bailian/Qwen 真实 provider，面试展示应强调“现场调用模型生成”；但代码仍保留 mock provider 作为测试和网络失败兜底，不要把 fallback 当成主链路。
 
 ---
 
@@ -17,15 +17,35 @@
 
 ---
 
+## 0.1 当前运行口径：现场调用模型，不靠 mock 数据
+
+当前项目有两套 provider 口径，面试时必须说清楚：
+
+- **面试展示 / 本地 `.env`：live provider**
+  `backend/.env` 当前配置：
+  - `FINRAG_EMBEDDING_PROVIDER=bailian`
+  - `FINRAG_RERANK_PROVIDER=bailian`
+  - `FINRAG_TEXT_PROVIDER=bailian`
+  - 模型包括 `text-embedding-v4`、`qwen3-rerank`、`qwen-plus`
+
+- **测试 / 无网兜底：mock provider**
+  `backend/.env.example` 和 pytest 默认使用 mock，保证没有 API key、没有网络、遇到 rate limit 时也能跑通核心工程链路。
+
+面试推荐表达：
+
+> 这个项目不是用 mock 数据写死答案。当前演示配置会现场调用 Bailian/Qwen：embedding 生成向量，rerank 进行候选精排，text provider 生成最终带引用答案。mock provider 只是为了单元测试和网络失败兜底，体现可测试和可降级，不是主展示链路。
+
+---
+
 ## 1. 面试 1-2 分钟开场讲法
 
 可以按下面这段背：
 
-> FinRAG 是我为了展示金融 RAG 工程能力做的一个本地 MVP。它的用户假设是金融研究员或投顾分析师，典型问题包括“某家公司收入是多少”“近期经营风险是什么”“AI 算力链条对上下游公司业绩有什么影响”。  
-> 
-> 我没有把它做成一个只会聊天的 demo，而是按真实 RAG 系统的链路拆成三层：第一层是数据管线，从公开 PDF 文档开始，用 `pdf2md --profile finrag` 把 PDF 转成带 frontmatter 和 page marker 的 Markdown，再由 backend importer 统一成 `documents.json` 和 `chunks.json`，然后构建 BM25 和 vector index；第二层是查询链路，FastAPI 接到问题后先做 query rewrite 和意图识别，然后 BM25 与向量召回并行，RRF 融合后送 rerank，最后基于 Top5 evidence 生成带 citation 的 Markdown 答案；第三层是展示层，React 前端通过 SSE 逐阶段接收 `query_rewrite`、`retrieval_complete`、`rerank_complete`、`answer_chunk`、`done` 等事件，让面试官能看到系统不是黑盒，而是每一步检索证据都可视化。  
-> 
-> 这个项目里我特别强调三个取舍：第一，金融问答必须可追溯，所以答案后面要有 citation，右侧能看到对应证据；第二，面试 demo 要稳定，所以默认 provider 是 mock，但 embedding、rerank、text 都抽象成 provider，后续可以切到阿里百炼/Qwen 等真实服务；第三，先做端到端闭环，再逐步提升语义检索质量、metadata 质量、评测和生产化能力。当前我会明确说明 mock embedding 不是生产级语义检索，它主要用于离线可重复测试和 demo 稳定性。
+> FinRAG 是我为了展示金融 RAG 工程能力做的一个本地 MVP。它的用户假设是金融研究员或投顾分析师，典型问题包括“某家公司收入是多少”“近期经营风险是什么”“AI 算力链条对上下游公司业绩有什么影响”。
+>
+> 我没有把它做成一个只会聊天的 demo，而是按真实 RAG 系统的链路拆成三层：第一层是数据管线，从公开 PDF 文档开始，用 `pdf2md --profile finrag` 把 PDF 转成带 frontmatter 和 page marker 的 Markdown，再由 backend importer 统一成 `documents.json` 和 `chunks.json`，然后构建 BM25 和 vector index；第二层是查询链路，FastAPI 接到问题后先做 query rewrite 和意图识别，然后 BM25 与向量召回并行，RRF 融合后送 rerank，最后基于 Top5 evidence 生成带 citation 的 Markdown 答案；第三层是展示层，React 前端通过 SSE 逐阶段接收 `query_rewrite`、`retrieval_complete`、`rerank_complete`、`answer_chunk`、`done` 等事件，让面试官能看到系统不是黑盒，而是每一步检索证据都可视化。
+>
+> 这个项目里我特别强调三个取舍：第一，金融问答必须可追溯，所以答案后面要有 citation，右侧能看到对应证据；第二，面试展示不走“假数据演示”，当前 `backend/.env` 已把 embedding、rerank、text 三类 provider 都切到 `bailian`，现场会真实调用 DashScope/Qwen 系列能力，mock 只作为测试和故障兜底；第三，架构上把 provider、retrieval、rerank、generation 拆开，所以既能真实调用模型，也能在网络失败时降级，体现工程可靠性。
 
 ---
 
@@ -94,15 +114,15 @@ Hybrid Retrieval
   │
   ▼
 RerankService
-  - provider rerank candidates
+  - live provider rerank candidates（当前 `.env` 为 Bailian）
   - fallback to fused Top5 on provider failure
   - assign citation_id = 1..5
   │
   ▼
 AnswerGenerator
   - build_generation_prompt
-  - provider generate_text
-  - fallback mock answer
+  - live provider generate_text（当前 `.env` 为 Bailian/Qwen）
+  - fallback mock answer on provider failure
   - citation span: <span class="cite" data-id="1">[1]</span>
   │
   ▼
@@ -236,10 +256,11 @@ backend/app/data/index/
 
 - 当前实现是本地 JSON 向量矩阵 + cosine similarity，不是 FAISS 文件索引。
 - provider 抽象支持 mock 和 Bailian。
-- 默认 `MockEmbeddingProvider` 是 sha256 deterministic embedding，维度 8。
-- 面试中必须诚实说明：**当前默认向量检索主要用于离线可重复和展示链路，不等价于生产级语义检索**。
+- 当前 `backend/.env` 配置 `FINRAG_EMBEDDING_PROVIDER=bailian`，会使用 `text-embedding-v4` 现场生成 query/document embedding。
+- `backend/.env.example` 和测试默认仍是 `mock`，`MockEmbeddingProvider` 是 sha256 deterministic embedding，维度 8，用于离线回归和无 API key 环境。
+- 面试中应诚实说明：**展示链路当前按 `.env` 走真实 embedding；mock 是测试/兜底模式，不是主展示口径**。
 
-> 注意：早期需求文档设想了 FAISS + BGE-M3；当前代码实现先采用轻量 JSON vector store + provider abstraction。面试时可以说“需求设计上预留了 FAISS/BGE-M3，当前 MVP 为了本地稳定和测试可重复，先用轻量实现跑通闭环”。
+> 注意：早期需求文档设想了 FAISS + BGE-M3；当前代码实现采用轻量 JSON vector store + provider abstraction，embedding 可切 Bailian。面试时不要说“已经用了 FAISS 文件索引”；更准确的说法是：“选型上 FAISS 适合本地向量检索，项目当前为了快速可审计和本地 demo，先用 JSON vector matrix + cosine 跑通闭环，模块边界已为后续替换 FAISS/pgvector/Milvus 留好。”
 
 ### 3.4 retrieval：BM25 + Vector + RRF
 
@@ -279,8 +300,9 @@ backend/app/data/index/
 **已实现：**
 
 - `RerankService.rerank(query, candidates)` 将 fused candidates 送给 rerank provider。
-- 默认 `MockRerankProvider` 用 query/document 字符重叠 + hash 稳定分数。
-- 支持 `BailianRerankProvider`，但需要环境变量和真实 API。
+- 当前 `backend/.env` 配置 `FINRAG_RERANK_PROVIDER=bailian`，展示时会现场调用 DashScope rerank。
+- `MockRerankProvider` 用 query/document 字符重叠 + hash 稳定分数，主要用于测试和 fallback。
+- 支持 `BailianRerankProvider`，需要环境变量和真实 API；当前本地 `.env` 已配置。
 - `BailianRerankProvider` 使用独立可配置的 DashScope rerank endpoint（`FINRAG_RERANK_BASE_URL`），默认请求 `https://dashscope.aliyuncs.com/api/v1/services/rerank/text-rerank/text-rerank`，避免把 OpenAI-compatible chat/embedding base URL 误拼成 `/compatible-mode/v1/rerank`。
 - 如果 rerank provider 失败，会 fallback 到 fused Top5，并设置 `degraded=True`、`score_source=hybrid_fusion`、`fallback_reason`。
 - `relevance_score` / `rerank_score` 只表示真实 reranker 分数；降级时使用 `fusion_score`，前端显示“融合 xx · rerank 降级 / 降级融合结果”，避免把 0.19 一类 RRF 融合分误解为精排分。
@@ -305,6 +327,7 @@ backend/app/data/index/
 
 - Prompt 明确要求：只依据给定资料回答；资料没有则说“资料中未提及”；输出 Markdown；关键结论后加 citation。
 - `AnswerGenerator` 调用 text provider。
+- 当前 `backend/.env` 配置 `FINRAG_TEXT_PROVIDER=bailian`，会调用 Qwen-compatible chat completions 生成答案。
 - provider 失败或返回空时，会回退到 `build_mock_answer()`。
 - citation 用前端可点击的 HTML span：
 
@@ -314,8 +337,8 @@ backend/app/data/index/
 
 **需要诚实说明：**
 
-- 默认 text provider 是 mock，不是每次真实调用 Qwen/DeepSeek/OpenAI。
-- mock answer 主要用于 demo 稳定性和测试可重复。
+- 当前面试展示配置是 `FINRAG_TEXT_PROVIDER=bailian`，不是 mock answer 主链路。
+- mock answer 仍存在，价值是 API 失败或无网时兜底，以及单元测试可重复。
 - 真正生产场景要加：更严格的引用校验、答案事实一致性评测、敏感/合规策略、模型输出 guardrail。
 
 ### 3.7 frontend SSE 展示
@@ -377,8 +400,8 @@ done
 1. **资料入库可追溯**：PDF → Markdown → document/chunk → index，每一步有 hash / manifest / metadata。
 2. **检索过程可解释**：前端展示 BM25、Vector、Rerank。
 3. **答案可引用**：citation_id 映射到 rerank evidence。
-4. **provider 可替换**：mock、Bailian、未来 OpenAI/DeepSeek 都可以放在 provider 层。
-5. **demo 稳定优先**：默认 mock provider，避免面试现场被网络、rate limit、API key 拖垮。
+4. **provider 可替换**：Bailian、mock fallback、未来 OpenAI/DeepSeek 都可以放在 provider 层。
+5. **真实调用与稳定性兼顾**：面试展示走 live provider；测试和断网场景可切 mock fallback，避免被网络、rate limit、API key 拖垮。
 
 ### 4.2 为什么先做闭环，再做效果优化
 
@@ -389,30 +412,31 @@ done
 - 先确定 API contract：`GET /api/documents`、`POST /api/query`、`POST /api/preview-rewrite`。
 - 先让数据能从 PDF 进入统一 schema。
 - 先让前端能看到 query lifecycle。
-- 再逐步替换真实 embedding/rerank/LLM，提升检索质量。
+- 在闭环稳定后切到 live embedding/rerank/LLM，并继续用评测集提升检索质量。
 
 面试时可以这么说：
 
-> 我把这个项目当成一个可迭代的 RAG 产品来做。MVP 阶段先保证“数据能进来、检索能发生、证据能展示、答案能引用、前端能流式渲染”。这样每一层都可测试、可替换。真实语义 embedding、FAISS/Milvus、评测集、生产监控属于下一阶段增强，而不是一开始就堆进去。
+> 我把这个项目当成一个可迭代的 RAG 产品来做。MVP 阶段先保证“数据能进来、检索能发生、证据能展示、答案能引用、前端能流式渲染”。当前展示配置已经接入 Bailian/Qwen live provider；下一阶段重点不是再证明能调模型，而是用 FAISS/pgvector/Milvus、评测集和生产监控把它做得更稳、更可量化。
 
-### 4.3 为什么要 mock/real provider 双轨
+### 4.3 为什么要 live provider + mock fallback 双轨
 
-**mock provider 的价值：**
-
-- 测试不依赖外网。
-- 不依赖 API key。
-- 不受 rate limit 影响。
-- 输出稳定，便于回归测试和面试演示。
-
-**real provider 的价值：**
+**live provider 的价值：**
 
 - 真实 embedding 提供语义召回能力。
 - 真实 rerank 提升 Top5 evidence 相关性。
 - 真实 LLM 提高回答质量。
+- 面试现场能证明系统不是靠写死答案或假数据，而是端到端实时调用模型。
+
+**mock fallback 的价值：**
+
+- 测试不依赖外网。
+- 不依赖 API key。
+- 不受 rate limit 影响。
+- 输出稳定，便于回归测试；网络或 provider 故障时系统可以降级而不是直接崩。
 
 **正确表述：**
 
-> 当前默认 mock provider 不是为了假装效果好，而是为了让工程链路稳定可测；provider 抽象的意义是后续可以在不改 workflow 的情况下切到 Bailian/Qwen 等真实模型。面试时我会明确说明当前 mock embedding 的局限，不把它说成生产级语义检索。
+> 当前面试展示配置走 Bailian/Qwen 真实 provider：embedding、rerank、answer generation 都会现场调用模型。mock 不是主链路，而是工程兜底和测试模式。这样既能展示真实模型调用，也能展示我对稳定性、可测试性和 provider 可替换性的设计。
 
 ---
 
@@ -496,10 +520,10 @@ done
 | Chunking | 约 900 字符，按段落/页码 | 简单稳定，能保留页码 | semantic chunking、section-aware chunking、table-aware chunking | 需要更高事实精度和表格问答时 |
 | 关键词检索 | jieba + rank_bm25 | 中文词项、股票代码、财务科目命中稳定 | Elasticsearch/OpenSearch | 文档量大、需要复杂 filter/highlight 时 |
 | 向量检索 | JSON vector store + cosine | 本地 demo 简单、可测 | FAISS、Milvus、pgvector、Pinecone | 文档量大或需要真实 ANN 性能时 |
-| Embedding | Mock / Bailian provider | 默认离线稳定，真实 provider 可切换 | BGE-M3、本地模型、OpenAI embedding | 需要真实语义检索效果时 |
+| Embedding | Bailian provider + mock fallback | 当前展示真实语义 embedding，mock 保障测试稳定 | BGE-M3、本地模型、OpenAI embedding | 需要本地化、降成本或更高中文/金融效果时 |
 | 融合 | RRF | 不依赖分数归一化，工程稳 | 加权融合、Learning-to-rank | 有评测集可学习权重时 |
-| Rerank | Mock / Bailian provider | Top5 证据质量可升级，失败可降级 | bge-reranker、Cohere Rerank、本地 cross-encoder | 对证据相关性要求更高时 |
-| 生成 | Mock / Qwen-compatible provider | demo 稳定，真实模型可替换 | DeepSeek、OpenAI、Claude | 根据成本、延迟、合规选择 |
+| Rerank | Bailian provider + mock fallback | 现场真实 rerank，失败可降级 | bge-reranker、Cohere Rerank、本地 cross-encoder | 对证据相关性要求更高时 |
+| 生成 | Qwen-compatible provider + mock fallback | 现场真实生成，provider 可替换 | DeepSeek、OpenAI、Claude | 根据成本、延迟、合规选择 |
 | 流式 | POST + text/event-stream | 查询要发 JSON，前端 fetch stream 可解析 | WebSocket、轮询 | 双向实时交互/多 agent 时用 WebSocket |
 | 测试 | pytest + TestClient | API contract 和 retrieval 可回归 | Playwright、load test | 前端 E2E/性能压测阶段 |
 
@@ -535,9 +559,9 @@ done
 重点说：
 
 - embedding、rerank、text 都通过 provider 构建。
-- 默认 mock 保证测试和面试稳定。
+- 面试展示通过 `.env` 使用 Bailian/Qwen live provider。
+- mock provider 保证测试和断网兜底。
 - rerank 失败 fallback 到 fused Top5。
-- 真实 provider 通过 env 切换。
 
 ### 7.5 API contract 和前后端联调能力
 
@@ -551,7 +575,7 @@ done
 
 面试官往往喜欢候选人能说清楚：
 
-- 当前 demo 哪里是 mock。
+- 当前 live provider 主链路和 mock fallback 的边界。
 - 哪些地方是 MVP 简化。
 - 如果进生产，下一步怎么做。
 
@@ -561,40 +585,40 @@ done
 
 ### 8.1 当前局限
 
-1. **默认 mock embedding 不是生产级语义检索**  
-   `MockEmbeddingProvider` 用 hash 生成 8 维向量，只保证 deterministic，不保证语义相似度。
+1. **mock embedding 不是生产级语义检索，但当前展示配置已切 live embedding**
+   `MockEmbeddingProvider` 用 hash 生成 8 维向量，只保证 deterministic，不保证语义相似度；当前 `backend/.env` 为 `FINRAG_EMBEDDING_PROVIDER=bailian`，展示时应使用真实 embedding。
 
-2. **provider 一致性需要进一步梳理**  
-   当前 index build 可用真实 embedding provider，但 `VectorStore.search()` 默认 query embedding 仍可能走 `MockEmbeddingProvider`。如果生产化，需要确保 build/search 使用同一 embedding provider、同一模型、同一维度和同一归一化策略。
+2. **provider / index 一致性是关键运维点**
+   当前 `VectorStore.search()` 会使用 active provider，并检查 query embedding 维度是否与持久化 index 一致；如果 `.env` 切换 provider 后没有重建 index，会抛出 dimension mismatch，提示重建索引或切回匹配 provider。面试时可以把这点讲成“我没有静默返回错误结果，而是显式 fail fast”。
 
-3. **vector store 当前是 JSON 矩阵，不是 FAISS**  
+3. **vector store 当前是 JSON 矩阵，不是 FAISS**
    适合小规模 demo，但不是高性能向量数据库。
 
-4. **rerank 输入和 evidence 展示目前偏短**  
+4. **rerank 输入和 evidence 展示目前偏短**
    Rerank 当前主要基于 `preview`，而 preview 约 120 字；下一步应改成完整 chunk 或更合理的 passage。
 
-5. **metadata 质量还有提升空间**  
+5. **metadata 质量还有提升空间**
    40 个 PDF 的公司、类型、日期可以用 manifest 补强，但标题规范、period、source_url、license/access_note 等还可进一步入 chunk metadata。
 
-6. **TSMC / 台积电实体扩展不完整**  
+6. **TSMC / 台积电实体扩展不完整**
    importer 能识别 `tsmc`，数据里有台积电；但 `query_analysis.py` 的 alias expansion 主要覆盖贵州茅台、宁德时代、NVIDIA，对台积电/TSMC 的 query rewrite 还需要补。
 
-7. **引用校验还不够严格**  
+7. **引用校验还不够严格**
    当前 done event 有 citation map，答案也有 citation span；但生产场景还应做 post-check：答案中的 citation 是否都存在、每个关键结论是否有 evidence 支撑。
 
-8. **前端部分指标仍是展示占位**  
+8. **前端部分指标仍是展示占位**
    如总耗时显示、准确度 98%、来源引用 5 个文档等，不应作为真实观测指标对外宣称。
 
-9. **多轮会话 per-turn evidence 尚未完全落地**  
+9. **多轮会话 per-turn evidence 尚未完全落地**
    `RetrievalSnapshot` 类型已存在，但 App 当前仍以全局 BM25/Vector/Rerank state 为主；旧答案的 evidence 可能被新查询覆盖。
 
-10. **折叠交互与 v1.2 要求仍有差距**  
+10. **折叠交互与 v1.2 要求仍有差距**
    右侧 retrieval panel 当前更像单开 accordion，不是独立折叠/all collapsed。
 
-11. **评测体系还比较基础**  
+11. **评测体系还比较基础**
    目前有 pytest contract/unit tests，但缺少一套金融问答 golden set、检索 Recall@K、citation accuracy、faithfulness 指标。
 
-12. **PDF 表格抽取还不是强项**  
+12. **PDF 表格抽取还不是强项**
    当前以文本层提取为主。财报表格要做精准数值问答，未来应加入 table-aware extraction 或结构化表格解析。
 
 ### 8.2 改进路线
@@ -604,12 +628,12 @@ done
 - 修复/标注前端硬编码指标，显示真实 `done.latency_ms` 和 citation count。
 - Rerank Top5 展示完整 evidence，不只展示 preview。
 - 将 `TSMC/台积电` 加入 query rewrite alias。
-- 明确当前 provider 状态，在 UI 或 README 标注 mock/real mode。
+- 明确当前 provider 状态，在 UI 或 README 标注 live/mock mode。
 
 #### P1：提升真实检索效果
 
-- 统一 embedding provider：build index 和 query search 使用同一 provider。
-- 切换真实 embedding（如 BGE-M3 或 Bailian text-embedding-v4）。
+- 保持 embedding provider 一致性：build index 和 query search 使用同一 provider，并在切换 provider 后重建索引。
+- 继续优化真实 embedding（如 BGE-M3、本地 embedding 或 Bailian text-embedding-v4）。
 - 使用 FAISS/pgvector/Milvus 替代 JSON vector store。
 - 引入 metadata filter：company、doc_type、date、period、source。
 
@@ -637,7 +661,7 @@ done
 
 推荐回答：
 
-> 当前默认配置确实是 mock embedding，我不会把它说成生产级语义检索。这样做的原因是面试 demo 和单元测试必须离线可重复，不依赖 API key、网络和 rate limit。工程上我已经把 embedding provider 抽象出来，`Settings` 支持 `embedding_provider=bailian`，后续切真实 embedding 不需要改 workflow 主链路。生产化时我会确保 index build 和 query search 使用同一个 embedding 模型，并替换成 FAISS/pgvector/Milvus 这类真正的向量检索后端。
+> 不是。我这里要区分两件事：mock embedding 是测试/兜底模式，sha256 8 维向量确实不是生产级语义检索；但当前面试展示的 `backend/.env` 已经配置为 `FINRAG_EMBEDDING_PROVIDER=bailian`，会现场调用 `text-embedding-v4`。工程上我还做了 provider provenance 和维度检查，如果索引和查询 provider 不一致会 fail fast，避免静默返回错误结果。生产化时我会把 JSON vector store 替换成 FAISS/pgvector/Milvus，并建立 Recall@K 评测。
 
 ### 9.2 被问：“当前结果不准怎么办？”
 
@@ -697,7 +721,7 @@ done
 
 ### Q8：当前向量检索用的是什么？
 
-**答：** 当前默认是 mock embedding，sha256 生成 deterministic vector，主要用于离线测试和 demo 稳定。代码预留了 Bailian embedding provider。生产化会换成真实 embedding，比如 BGE-M3/Bailian text-embedding-v4，并确保建库和查询用同一模型。
+**答：** 当前面试展示配置是 Bailian `text-embedding-v4`，会现场生成 embedding。mock embedding 只用于离线测试/兜底，它是 sha256 deterministic vector，不代表真实语义效果。生产化时我会继续保证建库和查询使用同一模型，并考虑 FAISS/pgvector/Milvus。
 
 ### Q9：为什么需要 rerank？
 
@@ -773,7 +797,7 @@ done
 
 ### Q27：如果面试现场网络断了怎么办？
 
-**答：** 默认 mock provider 可以离线运行核心链路，前端也有 fallback mock documents。真实 provider 是增强，不是 demo 唯一依赖。这是我刻意做的面试稳定性设计。
+**答：** 当前主展示链路依赖 live provider，但我保留了 mock provider 和前端 fallback documents。网络断了时可以切回 mock 展示工程流程；网络正常时则用 Bailian/Qwen 现场生成结果。这是为了兼顾“真实调用”和“面试稳定性”。
 
 ### Q28：如果检索不到资料，系统怎么回答？
 
@@ -832,7 +856,7 @@ done
 强调：
 
 - 如果引用能点击，就点击 citation 看右侧高亮。
-- 如果结果不完美，就顺势说明 mock embedding 和下一步真实 provider。
+- 如果结果不完美，就顺势说明 live embedding/rerank 也需要评测集和调参，而不是靠感觉判断。
 
 ### 2:30 - 3:30 发起分析型问题
 
@@ -869,7 +893,7 @@ done
 
 讲：
 
-> 我也明确知道当前还有 MVP 简化：默认 embedding/rerank/text 是 mock，vector store 还是 JSON，不是生产级向量库；rerank 目前主要基于 preview，证据文本应扩展到完整 chunk；前端 per-turn evidence 还在 v1.2 路线里。下一步我会优先做真实 embedding provider 一致性、FAISS/pgvector、citation post-check、评测集和可观测 tracing。
+> 我也明确知道当前还有 MVP 简化：虽然展示配置已经走 Bailian/Qwen 真实 provider，但 vector store 还是 JSON，不是生产级向量库；rerank/evidence 展示还需要从 preview 扩展到更完整的 passage；前端 per-turn evidence 还在 v1.2 路线里。下一步我会优先做 FAISS/pgvector、citation post-check、评测集和可观测 tracing。
 
 最后收束：
 
@@ -901,12 +925,12 @@ done
 
 1. **可追溯**：frontmatter、manifest、page marker、citation map。
 2. **可观测**：前端展示 query rewrite、BM25、Vector、Rerank、answer stream。
-3. **可替换**：embedding/rerank/text provider 抽象，mock 保稳定，real provider 可切换。
+3. **真实调用 + 可降级**：当前 embedding/rerank/text 走 Bailian/Qwen live provider，mock 只作为测试和兜底。
 
 ### 三个诚实局限
 
-1. 当前默认 mock embedding，不是生产级语义检索。
-2. 当前 vector store 是 JSON，小规模 demo OK，生产要 FAISS/pgvector/Milvus。
+1. 当前 vector store 是 JSON，小规模 demo OK，生产要 FAISS/pgvector/Milvus。
+2. mock embedding 只适合测试/兜底，不能作为生产级语义检索；展示时应确认 `.env` 走 Bailian。
 3. 当前 rerank/evidence 主要用 preview，生产要完整 chunk + citation post-check + 评测。
 
 ### 最佳收尾
