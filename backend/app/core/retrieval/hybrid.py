@@ -8,6 +8,7 @@ from app.core.config import get_settings
 from app.core.providers.embeddings import build_embedding_provider
 from app.core.retrieval.bm25_store import BM25Result, BM25Store
 from app.core.retrieval.index_store import RetrievalIndexStore
+from app.core.retrieval.table_facts import query_table_facts
 from app.core.retrieval.vector_store import VectorResult, VectorStore
 from app.models.schemas import RetrievalResultItem
 
@@ -60,6 +61,7 @@ class HybridRetriever:
             logger.exception("vector search failed")
         try:
             supplemental_hits = self._supplemental_hits(query, top_k=limit)
+            supplemental_hits.extend(self._table_fact_hits(query, top_k=limit))
         except Exception:
             logger.exception("supplemental hits failed")
             supplemental_hits = []
@@ -89,7 +91,10 @@ class HybridRetriever:
             scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + 1.0 / (self.rrf_k + rank)
             payloads[hit.chunk_id] = self._hit_to_payload(hit)
         for rank, hit in enumerate(supplemental_hits, start=1):
-            supplemental_score = 0.08 + min(0.25, float(getattr(hit, "score", 0.0)) * 0.03) + 1.0 / (self.rrf_k + rank)
+            if getattr(hit, "metadata", {}).get("chunk_type") == "table_fact":
+                supplemental_score = 0.55 + min(0.35, float(getattr(hit, "score", 0.0)) * 0.03) + 1.0 / (self.rrf_k + rank)
+            else:
+                supplemental_score = 0.08 + min(0.25, float(getattr(hit, "score", 0.0)) * 0.03) + 1.0 / (self.rrf_k + rank)
             scores[hit.chunk_id] = scores.get(hit.chunk_id, 0.0) + supplemental_score
             payloads[hit.chunk_id] = self._hit_to_payload(hit)
         boosts = self._entity_boost_terms(query)
@@ -135,6 +140,8 @@ class HybridRetriever:
                 score += 2.0
             if any(marker in query.lower() for marker in ("总营收", "营收", "收入", "revenue")) and "condensed consolidated statements of income" in haystack and "three months ended" in haystack and "revenue" in haystack:
                 score += 4.0
+            if self._is_revenue_table_hit(query, hit, haystack):
+                score += 6.0
             scored.append((score, hit))
         ranked = sorted(scored, key=lambda item: item[0], reverse=True)[:top_k]
         results: List[BM25Result] = []
@@ -154,6 +161,61 @@ class HybridRetriever:
                 )
             )
         return results
+
+    def _table_fact_hits(self, query: str, top_k: int) -> List[BM25Result]:
+        results: List[BM25Result] = []
+        for match in query_table_facts(query, top_k=top_k):
+            fact = match.fact
+            metadata = {
+                **fact,
+                "chunk_type": "table_fact",
+                "fact_score": match.score,
+                "fact_reasons": match.reasons,
+                "source": fact.get("source_pdf_name", ""),
+                "section": f"table:{fact.get('table_id', '')}",
+            }
+            raw_value = str(fact.get("raw_value") or fact.get("value") or "")
+            unit = str(fact.get("unit") or "").strip()
+            currency = str(fact.get("currency") or "").strip()
+            metric_label = str(fact.get("metric_label") or fact.get("metric") or "metric")
+            period_label = str(fact.get("period_label") or "").strip()
+            content = " | ".join(
+                part
+                for part in (
+                    f"Table fact: {metric_label} = {raw_value}",
+                    f"period: {period_label}" if period_label else "",
+                    f"unit: {unit}" if unit else "",
+                    f"currency: {currency}" if currency else "",
+                    f"table: {fact.get('table_id', '')}",
+                    f"source: {fact.get('source_pdf_name', '')}",
+                )
+                if part
+            )
+            results.append(
+                BM25Result(
+                    chunk_id=str(fact.get("fact_id") or f"fact-{fact.get('table_id', '')}"),
+                    score=match.score,
+                    title=str(fact.get("source_pdf_name") or fact.get("table_id") or "table fact"),
+                    doc_type=str(fact.get("doc_type") or "financial_report"),
+                    company=str(fact.get("company") or ""),
+                    date=_date_from_source(str(fact.get("source_pdf_name") or "")),
+                    page=fact.get("page_num") if isinstance(fact.get("page_num"), int) else None,
+                    preview=content[:120],
+                    content=content,
+                    metadata=metadata,
+                )
+            )
+        return results
+
+
+    @staticmethod
+    def _is_revenue_table_hit(query: str, hit: BM25Result, haystack: str) -> bool:
+        query_lower = query.lower()
+        if not any(marker in query_lower for marker in ("总营收", "营收", "收入", "revenue")):
+            return False
+        if hit.metadata.get("chunk_type") != "table":
+            return False
+        return "|" in hit.content and "revenue" in haystack
 
     @staticmethod
     def _entity_boost_terms(query: str) -> List[str]:
@@ -209,4 +271,10 @@ class HybridRetriever:
             preview=payload["preview"],
             score=float(payload.get("score", getattr(hit, "score", 0.0))),
             content=payload.get("content", payload["preview"]),
+            metadata=dict(payload.get("metadata", {})),
         )
+
+
+def _date_from_source(source_name: str) -> str:
+    match = __import__("re").search(r"(20\d{2}-\d{2}-\d{2})", source_name)
+    return match.group(1) if match else "unknown"

@@ -31,3 +31,7 @@ def test_nvidia_fy2026_q3_revenue_query_retrieves_income_statement():
     top_text = ' '.join(item.content for item in rerank.top5[:3])
     assert 'NVDA_nvidia_10q_FY2026Q3' in rerank.top5[0].title
     assert 'Revenue' in top_text and '57,006' in top_text
+    assert rerank.top5[0].metadata['chunk_type'] == 'table_fact'
+    assert rerank.top5[0].metadata['metric'] == 'revenue'
+    assert rerank.top5[0].metadata['raw_value'] == '57,006'
+    assert any(item.metadata.get('chunk_type') in {'table_fact', 'table'} for item in rerank.top5)

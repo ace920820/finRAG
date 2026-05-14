@@ -146,6 +146,7 @@ def test_import_corpus_writes_schema_compatible_deterministic_json(tmp_path):
     assert len(first.chunks) == 2
     assert first_docs_json == second.documents_path.read_text(encoding="utf-8")
     assert first_chunks_json == second.chunks_path.read_text(encoding="utf-8")
+    assert json.loads(first.facts_path.read_text(encoding="utf-8")) == []
     assert [Document(**item) for item in documents]
     assert [Chunk(**item) for item in chunks]
     catl = next(doc for doc in first.documents if doc.title == "宁德时代 季度经营更新")
@@ -203,3 +204,68 @@ def test_import_corpus_rejects_empty_inputs_without_overwriting_existing_process
     assert documents_path.read_text(encoding="utf-8") == '[{"doc_id":"existing"}]'
     assert chunks_path.read_text(encoding="utf-8") == '[{"chunk_id":"existing-c1"}]'
 
+
+
+def test_import_corpus_adds_structured_markdown_table_chunks(tmp_path):
+    raw_root = tmp_path / "raw"
+    source = raw_root / "extracted" / "reports"
+    source.mkdir(parents=True)
+    table_dir = raw_root / "tables" / "reports" / "NVDA-report"
+    table_dir.mkdir(parents=True)
+    markdown = source / "NVDA report.md"
+    table_json = table_dir / "tbl-demo-p0001-t01.json"
+    table_csv = table_dir / "tbl-demo-p0001-t01.csv"
+    markdown.write_text(
+        "\n".join([
+            "---",
+            'collection: "reports"',
+            'title: "NVDA report"',
+            'source_pdf_name: "NVDA report.pdf"',
+            f'table_artifact_dir: "{table_dir}"',
+            'company: "NVIDIA"',
+            'doc_type: "financial_report"',
+            'content_hash: "stable-table-hash"',
+            "---",
+            "",
+            "## Extracted Text",
+            "",
+            "Plain text layer still exists.",
+        ]),
+        encoding="utf-8",
+    )
+    (table_dir / "._tbl-demo-p0001-t01.json").write_bytes(b"\x00\xb0not-json")
+    table_json.write_text(json.dumps({
+        "table_id": "tbl-demo-p0001-t01",
+        "title": "Condensed Consolidated Statements of Income",
+        "page_num": 7,
+        "headers": ["Metric", "Oct 26 2025", "Oct 27 2024"],
+        "rows": [["Revenue", "57,006", "35,082"], ["Cost of revenue", "15,157", "8,926"]],
+        "markdown": "| Metric | Oct 26 2025 | Oct 27 2024 |\n| --- | --- | --- |\n| Revenue | 57,006 | 35,082 |\n| Cost of revenue | 15,157 | 8,926 |",
+        "row_count": 2,
+        "column_count": 3,
+        "extraction_method": "pdfplumber",
+        "csv_path": str(table_csv),
+    }), encoding="utf-8")
+
+    result = import_corpus(raw_root=raw_root, processed_dir=tmp_path / "processed", collection_name="reports")
+
+    table_chunks = [chunk for chunk in result.chunks if chunk.metadata.get("chunk_type") == "table"]
+    assert len(table_chunks) == 1
+    chunk = table_chunks[0]
+    assert chunk.section == "table:tbl-demo-p0001-t01"
+    assert chunk.page_num == 7
+    assert "| Revenue | 57,006 | 35,082 |" in chunk.content
+    assert chunk.metadata["table_id"] == "tbl-demo-p0001-t01"
+    assert chunk.metadata["row_count"] == 2
+
+    row_chunks = [chunk for chunk in result.chunks if chunk.metadata.get("chunk_type") == "table_row"]
+    assert len(row_chunks) == 1
+    assert row_chunks[0].metadata["metric"] == "revenue"
+    assert "Table Row Metric: revenue" in row_chunks[0].content
+
+    facts = json.loads(result.facts_path.read_text(encoding="utf-8"))
+    assert [fact["value"] for fact in facts] == [57006, 35082]
+    assert all(fact["metric"] == "revenue" for fact in facts)
+    assert facts[0]["currency"] == "USD"
+    assert facts[0]["unit"] == "USD millions"
+    assert result.facts == facts

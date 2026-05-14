@@ -19,6 +19,27 @@ class MockTextProvider:
             return f"### 回答\n\n当前本地资料中未检索到可引用证据，无法给出带引用的结论。\n\n### 查询\n\n{query}"
         first = evidence[0]
         cite = f'<span class="cite" data-id="{first.citation_id}">[{first.citation_id}]</span>'
+        if first.metadata.get("chunk_type") == "table_fact":
+            metric_label = first.metadata.get("metric_label") or first.metadata.get("metric") or "指标"
+            raw_value = first.metadata.get("raw_value") or first.metadata.get("value") or "资料中未提及"
+            unit = first.metadata.get("unit") or ""
+            currency = first.metadata.get("currency") or ""
+            period = first.metadata.get("period_label") or "对应期间"
+            if isinstance(period, str) and (period.replace(",", "").replace(".", "").isdigit() or period in {"", "unknown"}):
+                period = "对应期间"
+            source = first.metadata.get("source_pdf_name") or first.title
+            page = f"第 {first.page} 页" if first.page is not None else "页码未知"
+            unit_text = str(unit or "")
+            currency_text = str(currency or "")
+            if currency_text and currency_text.lower() in unit_text.lower():
+                currency_text = ""
+            suffix = " ".join(part for part in (str(raw_value), unit_text, currency_text) if part and part != "unknown")
+            return (
+                f"### 结论\n\n"
+                f"根据表格事实，{first.company}{period}的{metric_label}为 {suffix}。{cite}\n\n"
+                f"### 依据\n\n"
+                f"- 来源：{source}，{page}，表格 {first.metadata.get('table_id', 'unknown')}。{cite}"
+            )
         if intent == "factual":
             return f"### 结论\n\n{first.content}{cite}"
         bullets = "\n".join(

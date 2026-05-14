@@ -72,3 +72,26 @@ def test_query_endpoint_rejects_invalid_body():
     response = client.post('/api/query', json={'query': ''})
 
     assert response.status_code == 422
+
+
+def test_query_endpoint_returns_table_fact_metadata_for_nvidia_revenue():
+    client = TestClient(create_app())
+    response = client.post('/api/query', json={'query': '英伟达2026年第三季度的总营收是多少？'})
+
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    rerank = _event(events, 'rerank_complete')
+    top = rerank['top5'][0]
+    assert top['metadata']['chunk_type'] == 'table_fact'
+    assert top['metadata']['metric'] == 'revenue'
+    assert top['metadata']['raw_value'] == '57,006'
+
+    answer_text = ''.join(payload['text'] for name, payload in events if name == 'answer_chunk')
+    assert '57,006' in answer_text
+    assert '<span class="cite" data-id="1">[1]</span>' in answer_text
+
+    done = _event(events, 'done')
+    citation = done['citations']['1']
+    assert citation['metadata']['chunk_type'] == 'table_fact'
+    assert citation['metadata']['table_id']
+    assert citation['metadata']['raw_value'] == '57,006'

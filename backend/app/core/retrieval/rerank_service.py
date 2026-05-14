@@ -77,7 +77,8 @@ class RerankService:
     @staticmethod
     def _query_alignment_boost(query: str, candidate: RetrievalResultItem) -> float:
         query_lower = query.lower()
-        haystack = " ".join([candidate.title, candidate.company, candidate.date, candidate.preview, candidate.content or ""]).lower()
+        metadata = candidate.metadata
+        haystack = " ".join([candidate.title, candidate.company, candidate.date, candidate.preview, candidate.content or "", " ".join(str(value) for value in metadata.values())]).lower()
         boost = 0.0
         if any(term in query_lower for term in ("英伟达", "nvidia", "nvda")) and any(term in haystack for term in ("nvidia", "nvda", "英伟达")):
             boost += 2.0
@@ -95,6 +96,28 @@ class RerankService:
             boost += 1.0
         if any(term in query_lower for term in ("总营收", "营收", "收入", "revenue")) and "condensed consolidated statements of income" in haystack and "revenue" in haystack:
             boost += 6.0
+        if any(term in query_lower for term in ("总营收", "营收", "收入", "revenue")) and "|" in haystack and "revenue" in haystack:
+            boost += 3.0
+        if metadata.get("chunk_type") == "table_fact":
+            boost += 10.0
+            reasons = metadata.get("fact_reasons") or []
+            if "current_period" in reasons:
+                boost += 6.0
+            if "period_year:2024" in reasons or "period_year:2025" in reasons or "period_year:2026" in reasons:
+                boost += 5.0
+        elif metadata.get("chunk_type") in {"table_row", "table"} and any(term in query_lower for term in ("总营收", "营收", "收入", "revenue", "净利润", "net income")):
+            boost += 4.0
+        metric = str(metadata.get("metric") or "")
+        if metric == "revenue" and any(term in query_lower for term in ("总营收", "营收", "收入", "revenue")):
+            boost += 4.0
+        if metric == "net_income" and any(term in query_lower for term in ("净利润", "net income")):
+            boost += 4.0
+        period_label = str(metadata.get("period_label") or "")
+        for year in ("2024", "2025", "2026"):
+            if year in query_lower and period_label in {f"{year}年", f"{year}年度"}:
+                boost += 8.0
+            elif year in query_lower and period_label.startswith(year) and any(term in period_label for term in ("前三季度", "半年度", "第一季度")) and not any(term in query_lower for term in ("前三季度", "半年度", "第一季度", "q1", "q2", "q3")):
+                boost -= 3.0
         return boost
 
     @staticmethod
@@ -145,6 +168,7 @@ class RerankService:
             page=candidate.page,
             content=candidate.content or candidate.preview,
             citation_id=rank,
+            metadata=dict(candidate.metadata),
         )
 
     @staticmethod

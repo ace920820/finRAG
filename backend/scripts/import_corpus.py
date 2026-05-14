@@ -54,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  Chunks: {len(result.chunks)}")
     print(f"  Documents JSON: {result.documents_path}")
     print(f"  Chunks JSON: {result.chunks_path}")
+    print(f"  Table facts: {len(result.facts)}")
+    print(f"  Table facts JSON: {result.facts_path}")
 
     if args.rebuild_index:
         env = os.environ.copy()

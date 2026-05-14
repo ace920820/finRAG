@@ -18,9 +18,15 @@ _NO_EVIDENCE_RULES = """你是 FinRAG 金融研究 Agent。当前本地资料没
 def build_generation_prompt(query: str, intent: IntentDetectedEvent, evidence: Sequence[RerankResultItem]) -> str:
     evidence_lines = []
     for item in evidence:
+        table_bits = []
+        if item.metadata:
+            for key in ("chunk_type", "table_id", "metric", "period_label", "raw_value", "unit", "currency"):
+                if item.metadata.get(key) not in (None, ""):
+                    table_bits.append(f"{key}={item.metadata.get(key)}")
+        metadata_text = " | " + " | ".join(table_bits) if table_bits else ""
         evidence_lines.append(
             f"[{item.citation_id}] {item.title} | {item.company} | {item.date} | "
-            f"page={item.page or 'N/A'} | {item.content}"
+            f"page={item.page or 'N/A'}{metadata_text} | {item.content}"
         )
     evidence_text = "\n".join(evidence_lines) or "无可用资料"
     rules = _SYSTEM_RULES if evidence else _NO_EVIDENCE_RULES

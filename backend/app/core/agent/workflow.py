@@ -111,8 +111,9 @@ def build_citations(items) -> Dict[str, CitationMetadata]:
             company=item.company,
             date=item.date,
             page=item.page,
-            source=item.title,
-            section=None,
+            source=str(item.metadata.get("source") or item.metadata.get("source_pdf_name") or item.title),
+            section=str(item.metadata.get("section") or item.metadata.get("table_id") or "") or None,
+            metadata=dict(item.metadata),
         )
     return citations
 

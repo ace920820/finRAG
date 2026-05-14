@@ -10,6 +10,7 @@ from typing import Literal
 
 from app.core.ingestion.chunker import chunk_text
 from app.core.ingestion.raw_loader import RawDocument, load_raw_documents
+from app.core.ingestion.table_facts import TableArtifact, build_table_row_chunks, extract_table_facts
 from app.models.schemas import Chunk, DocType, Document
 
 
@@ -38,6 +39,8 @@ class ImportResult:
     chunks: list[Chunk]
     documents_path: Path
     chunks_path: Path
+    facts_path: Path
+    facts: list[dict]
 
 
 def import_corpus(
@@ -53,21 +56,24 @@ def import_corpus(
     raw_documents = load_raw_documents(raw_root=raw_root, collection_name=collection_name, source_dir=source_dir)
     if not raw_documents:
         raise ValueError("No raw input documents found; processed corpus was left unchanged.")
-    documents, chunks = build_processed_records(raw_documents, defaults=defaults, target_chars=target_chars)
+    documents, chunks, facts = build_processed_records(raw_documents, defaults=defaults, target_chars=target_chars)
     if not documents:
         raise ValueError("Import produced zero documents; processed corpus was left unchanged.")
     processed_dir.mkdir(parents=True, exist_ok=True)
     documents_path = processed_dir / "documents.json"
     chunks_path = processed_dir / "chunks.json"
+    facts_path = processed_dir / "table_facts.json"
     documents_path.write_text(json.dumps([doc.model_dump() for doc in documents], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     chunks_path.write_text(json.dumps([chunk.model_dump() for chunk in chunks], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return ImportResult(documents=documents, chunks=chunks, documents_path=documents_path, chunks_path=chunks_path)
+    facts_path.write_text(json.dumps(facts, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return ImportResult(documents=documents, chunks=chunks, documents_path=documents_path, chunks_path=chunks_path, facts_path=facts_path, facts=facts)
 
 
-def build_processed_records(raw_documents: list[RawDocument], defaults: ImportDefaults | None = None, target_chars: int = 900) -> tuple[list[Document], list[Chunk]]:
+def build_processed_records(raw_documents: list[RawDocument], defaults: ImportDefaults | None = None, target_chars: int = 900) -> tuple[list[Document], list[Chunk], list[dict]]:
     defaults = defaults or ImportDefaults()
     documents: list[Document] = []
     chunks: list[Chunk] = []
+    facts: list[dict] = []
     for raw in raw_documents:
         document = _document_from_raw(raw, defaults)
         documents.append(document)
@@ -93,7 +99,116 @@ def build_processed_records(raw_documents: list[RawDocument], defaults: ImportDe
                 content=text_chunk.content,
                 metadata=metadata,
             ))
-    return documents, chunks
+        table_chunks, table_facts = _table_chunks_for_document(raw, document, len(chunks))
+        chunks.extend(table_chunks)
+        facts.extend(table_facts)
+    return documents, chunks, facts
+
+
+def _table_chunks_for_document(raw: RawDocument, document: Document, start_index: int) -> tuple[list[Chunk], list[dict]]:
+    table_root = _table_artifact_dir(raw)
+    if table_root is None or not table_root.exists():
+        return [], []
+    table_chunks: list[Chunk] = []
+    table_facts: list[dict] = []
+    table_paths = [path for path in table_root.glob("*.json") if not path.name.startswith("._")]
+    for table_index, table_path in enumerate(sorted(table_paths, key=lambda path: path.name)):
+        table = _read_table_payload(table_path)
+        if not table:
+            continue
+        artifact = TableArtifact(table=table, json_path=table_path)
+        markdown = str(table.get("markdown") or "").strip()
+        if not markdown:
+            continue
+        chunk_index = start_index + len(table_chunks)
+        table_id = str(table.get("table_id") or table_path.stem)
+        content = _render_table_chunk_content(table)
+        chunk_hash = _hash_text(f"{document.doc_id}:{table_id}:{content}")[:12]
+        metadata = {
+            **raw.frontmatter,
+            "title": document.title,
+            "source": document.source,
+            "company": document.company,
+            "doc_type": document.doc_type,
+            "date": document.date,
+            "collection": raw.collection_name or raw.frontmatter.get("collection", "default"),
+            "source_path": str(raw.path),
+            "source_name": raw.source_name,
+            "chunk_type": "table",
+            "table_id": table_id,
+            "table_title": str(table.get("title") or ""),
+            "table_json_path": str(table_path),
+            "table_csv_path": str(table.get("csv_path") or ""),
+            "row_count": table.get("row_count", 0),
+            "column_count": table.get("column_count", 0),
+            "extraction_method": str(table.get("extraction_method") or "pdfplumber"),
+        }
+        table_chunks.append(Chunk(
+            chunk_id=f"{document.doc_id}-t{table_index:04d}-{chunk_hash}",
+            doc_id=document.doc_id,
+            section=f"table:{table_id}",
+            page_num=_safe_int(table.get("page_num")),
+            chunk_index=chunk_index,
+            content=content,
+            metadata=metadata,
+        ))
+        row_chunks = build_table_row_chunks(
+            raw_frontmatter=raw.frontmatter,
+            document=document,
+            table_artifact=artifact,
+            start_index=start_index + len(table_chunks),
+        )
+        table_chunks.extend(row_chunks)
+        table_facts.extend(extract_table_facts(raw_frontmatter=raw.frontmatter, document=document, table_artifact=artifact))
+    return table_chunks, table_facts
+
+
+def _table_artifact_dir(raw: RawDocument) -> Path | None:
+    artifact_dir = raw.frontmatter.get("table_artifact_dir")
+    if artifact_dir:
+        configured = Path(artifact_dir)
+        if configured.exists():
+            return configured
+    source_name = raw.frontmatter.get("source_pdf_name") or raw.source_name
+    collection = raw.collection_name or raw.frontmatter.get("collection")
+    if not source_name or not collection:
+        return None
+    raw_root = _raw_root_from_raw_path(raw.path)
+    safe_stem = "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in Path(source_name).stem.strip())
+    return raw_root / "tables" / collection / safe_stem
+
+
+def _raw_root_from_raw_path(path: Path) -> Path:
+    parts = path.parts
+    if len(parts) >= 3 and parts[-3] in {"extracted", "manual"}:
+        return Path(*parts[:-3])
+    return path.parent
+
+
+def _read_table_payload(path: Path) -> dict:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _render_table_chunk_content(table: dict) -> str:
+    title = str(table.get("title") or table.get("table_id") or "Table")
+    page_num = table.get("page_num")
+    markdown = str(table.get("markdown") or "").strip()
+    return "\n\n".join([
+        f"Table: {title}",
+        f"Page: {page_num}" if page_num is not None else "Page: unknown",
+        markdown,
+    ]).strip()
+
+
+def _safe_int(value) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _document_from_raw(raw: RawDocument, defaults: ImportDefaults) -> Document:

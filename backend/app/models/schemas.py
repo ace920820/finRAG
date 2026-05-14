@@ -60,6 +60,7 @@ class RetrievalResultItem(BaseModel):
     preview: str
     score: float
     content: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class RerankResultItem(BaseModel):
@@ -78,6 +79,7 @@ class RerankResultItem(BaseModel):
     page: Optional[int] = None
     content: str
     citation_id: int
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class CitationMetadata(BaseModel):
@@ -89,6 +91,7 @@ class CitationMetadata(BaseModel):
     page: Optional[int] = None
     source: Optional[str] = None
     section: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 KBStatus = Literal["ready", "importing", "failed", "not_initialized"]
