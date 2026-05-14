@@ -1,6 +1,6 @@
 # Phase 14 Plan — Table-Aware PDF Extraction
 
-**Status:** Planned  
+**Status:** Complete  
 **Milestone:** v1.3 Knowledge Base Management  
 **Requirements:** REQ-v1.3-009, REQ-v1.3-010  
 **Source:** `docs/table处理.txt`
@@ -183,3 +183,33 @@ python3 -m pytest \
 ## Handoff To Phase 15
 
 Phase 15 should consume the table artifacts from `backend/app/data/raw/tables/` and `*-table-manifest.json` to create table-aware chunk types and structured financial facts. Phase 14 only guarantees that these artifacts exist and preserve source structure.
+
+
+## Completion Summary
+
+Completed on 2026-05-14.
+
+- Added `pdf2md` table extraction support with `pdfplumber` for the FinRAG profile.
+- Preserved existing PyMuPDF text extraction and raw Markdown output behavior.
+- Added table JSON/CSV artifact writing under `backend/app/data/raw/tables/<collection>/<source-stem>/`.
+- Added collection-level table manifests under `backend/app/data/raw/_meta/<collection>-table-manifest.{md,json}`.
+- Table extraction failures are isolated from text extraction and recorded in the table manifest.
+- Reprocessed the 40-PDF demo corpus successfully: 40 extracted, 0 failed.
+- Validation table manifest reported 40 sources, 4128 extracted tables, and 0 table extraction failures.
+- Backend re-import validation preserved 40 documents and 9303 chunks.
+
+## Validation Results
+
+```bash
+cd pdf2md && uv run pytest
+# 72 passed
+
+cd pdf2md && uv run python -m elite_daily_pdf_to_md.cli   --profile finrag   --source-dir ../data/docs/source_documents   --raw-root ../backend/app/data/raw   --collection-name finrag-user-source-40   --extractor pymupdf   --force
+# Total PDFs: 40; Extracted: 40; Failed: 0
+
+FINRAG_EMBEDDING_PROVIDER=mock FINRAG_RERANK_PROVIDER=mock FINRAG_TEXT_PROVIDER=mock python3 backend/scripts/import_corpus.py   --collection-name finrag-user-source-40   --processed-dir "$PWD/backend/app/data/processed"   --index-dir "$PWD/backend/app/data/index"   --rebuild-index
+# Documents: 40; Chunks: 9303
+
+cd backend && python3 -m pytest   tests/test_import_pipeline_integration.py   tests/test_query_api.py   tests/test_hybrid_retrieval.py
+# 7 passed
+```

@@ -1,7 +1,7 @@
 # Roadmap: FinRAG v1.3 Knowledge Base Management
 
 **Last updated:** 2026-05-13  
-**Current status:** v1.3 KB management complete; table-aware RAG phases 14-16 added and pending.
+**Current status:** Phase 14 table-aware extraction complete; Phase 15 table chunking/facts pending.
 
 ## Shipped Milestones
 
@@ -22,7 +22,7 @@ Goal: Add a lightweight knowledge base management page and backend API surface f
 | 11 | Single-App Management Page Integration | REQ-v1.3-001, REQ-v1.3-007, REQ-v1.3-008 | Merge the external knowledge base manager React page into `frontend/` and add a chat-header entry without running a second frontend app. | ✓ Complete |
 | 12 | KB Backend API Foundation | REQ-v1.3-002, REQ-v1.3-003, REQ-v1.3-007, REQ-v1.3-008 | Implement `/api/kb/overview`, `/api/kb/documents`, and `/api/kb/documents/{doc_id}` over the existing processed corpus and chunk data. | ✓ Complete |
 | 13 | KB Import, Reindex, and Frontend联调 | REQ-v1.3-004, REQ-v1.3-005, REQ-v1.3-006, REQ-v1.3-007, REQ-v1.3-008 | Implement upload/import/job/reindex/maintenance APIs and wire the management page to real backend endpoints. | ✓ Complete |
-| 14 | Table-Aware PDF Extraction | REQ-v1.3-009, REQ-v1.3-010 | Extend PDF/raw extraction to emit structured table artifacts, table manifests, and table-aware raw metadata alongside existing text extraction. | Pending |
+| 14 | Table-Aware PDF Extraction | REQ-v1.3-009, REQ-v1.3-010 | Extend PDF/raw extraction to emit structured table artifacts, table manifests, and table-aware raw metadata alongside existing text extraction. | Complete |
 | 15 | Table Chunking And Structured Facts | REQ-v1.3-010, REQ-v1.3-012 | Add `text`/`table`/`table_row`/`table_summary` chunk types and normalize core financial statement metrics into a local structured facts store. | Pending |
 | 16 | Table-Aware Retrieval And QA Integration | REQ-v1.3-011, REQ-v1.3-013, REQ-v1.3-007, REQ-v1.3-008 | Route numeric/metric questions through table-aware retrieval/facts, expose table evidence in citations/debug APIs, and verify financial table answers. | Pending |
 
@@ -137,4 +137,4 @@ Goal: Add a lightweight knowledge base management page and backend API surface f
 
 ## Next Action
 
-Plan Phase 14 for table-aware PDF extraction.
+Plan or execute Phase 15 for table chunking and structured facts.

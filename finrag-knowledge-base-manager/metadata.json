@@ -1,0 +1,6 @@
+{
+  "name": "FinRAG Knowledge Base Manager",
+  "description": "Comprehensive management interface for document indexing, chunking, and knowledge retrieval in the FinRAG financial RAG system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

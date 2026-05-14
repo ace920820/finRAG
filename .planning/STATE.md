@@ -17,14 +17,14 @@ progress:
 
 **Initialized:** 2026-05-13  
 **Current milestone:** v1.3 Knowledge Base Management  
-**Status:** Phase 14 planned; ready for execution.
+**Status:** Phase 14 complete; ready for Phase 15 planning/execution.
 
 ## Current Position
 
 Phase: 14 — Table-Aware PDF Extraction  
 Plan: `.planning/phases/14-table-aware-pdf-extraction/PLAN.md`  
 Status: Planned; ready for execution  
-Last activity: 2026-05-13 — Planned Phase 14 table-aware PDF extraction from `docs/table处理.txt`.
+Last activity: 2026-05-14 — Completed Phase 14 table-aware PDF extraction in `pdf2md` and validated 40-PDF corpus table artifacts.
 
 ## Completed Milestones
 
@@ -48,7 +48,7 @@ Last activity: 2026-05-13 — Planned Phase 14 table-aware PDF extraction from `
 
 ## Next Action
 
-Execute Phase 14 for table-aware PDF extraction, then continue with Phase 15 table chunking and structured facts.
+Continue with Phase 15 table chunking and structured facts.
 
 ## Quick Tasks Completed
 
@@ -61,4 +61,5 @@ Execute Phase 14 for table-aware PDF extraction, then continue with Phase 15 tab
 
 | Date | Update | Result |
 | --- | --- | --- |
+| 2026-05-14 | phase-14-table-aware-extraction | Added FinRAG table extraction artifacts/manifests in pdf2md and validated 40 PDFs, 4128 tables, 40 documents, 9303 chunks. |
 | 2026-05-13 | Added table-aware RAG phases | Added phases 14-16 for table extraction, table chunk/facts import, and table-aware retrieval/QA integration based on `docs/table处理.txt`. |
