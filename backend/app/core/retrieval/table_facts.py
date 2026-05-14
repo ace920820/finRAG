@@ -58,17 +58,23 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
     requested_metric = _requested_metric(lowered)
     requested_years = set(re.findall(r"20\d{2}", lowered))
     requested_quarter = _requested_quarter(lowered)
+    latest_requested = _latest_requested(lowered)
     if not requested_metric or not requested_companies:
         return []
     matches: list[TableFactMatch] = []
     fact_items = list(facts if facts is not None else load_table_facts())
     total_metric_requested = any(term in lowered for term in ("总营收", "total revenue"))
+    latest_source_key = _latest_fact_source_key(fact_items, requested_companies, requested_metric) if latest_requested and not requested_years else None
     for fact in fact_items:
         if fact.get("metric") != requested_metric:
             continue
-        raw_value = str(fact.get("raw_value") or "")
-        if "%" in raw_value:
+        if _is_percentage_fact(fact):
             continue
+        if latest_source_key is not None and _source_sort_key(str(fact.get("source_pdf_name") or "")) != latest_source_key:
+            continue
+        if latest_source_key is not None and not _is_latest_period_fact(fact, fact_items):
+            continue
+        raw_value = str(fact.get("raw_value") or "")
         score = 0.0
         reasons: list[str] = []
         company = str(fact.get("company") or "")
@@ -105,6 +111,9 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
                 year_matched = True
         if requested_years and not year_matched:
             continue
+        if latest_source_key is not None:
+            score += 4.0
+            reasons.append("latest_source")
         quarter_matched = False
         if requested_quarter and _quarter_matches(requested_quarter, haystack):
             score += 2.0
@@ -122,12 +131,20 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
             continue
         if (not requested_years or year_matched) and (not requested_quarter or quarter_matched or current_period_matched):
             reasons.append("strict_period_match")
+        if latest_requested:
+            period_rank = _global_latest_period_rank(fact, fact_items)
+            if period_rank == 0:
+                score += 4.0
+                reasons.append("latest_period")
+            elif period_rank == 1:
+                score += 1.0
+                reasons.append("recent_period")
         if requested_quarter == "q3" and "前三季度" in query and any(marker in haystack for marker in ("前三季度", "1-9", "nine months")):
             score += 1.5
             reasons.append("nine_months")
         if score >= 7.0:
             matches.append(TableFactMatch(fact=fact, score=score, reasons=reasons))
-    return sorted(matches, key=lambda item: (-item.score, _fact_sort_key(item.fact, requested_quarter)))[:top_k]
+    return sorted(matches, key=lambda item: (-item.score, _fact_sort_key(item.fact, requested_quarter, latest_requested)))[:top_k]
 
 
 def is_table_metric_query(query: str) -> bool:
@@ -148,6 +165,29 @@ def is_table_fact_period_compatible(query: str, fact: dict[str, Any]) -> bool:
 
 
 
+def _latest_fact_source_key(facts: list[dict[str, Any]], requested_companies: list[str], requested_metric: str) -> tuple[int, int, int] | None:
+    keys = [
+        _source_sort_key(str(fact.get("source_pdf_name") or ""))
+        for fact in facts
+        if fact.get("metric") == requested_metric
+        and not _is_percentage_fact(fact)
+        and any(_company_matches(str(fact.get("company") or ""), str(fact.get("source_pdf_name") or ""), requested) for requested in requested_companies)
+    ]
+    return max(keys) if keys else None
+
+
+def _source_sort_key(source_name: str) -> tuple[int, int, int]:
+    match = re.search(r"(20\d{2})-(\d{2})-(\d{2})", source_name)
+    if match:
+        return tuple(int(part) for part in match.groups())
+    fiscal_match = re.search(r"fy(20\d{2})", source_name.lower())
+    if fiscal_match:
+        return (int(fiscal_match.group(1)), 12, 31)
+    return (0, 0, 0)
+
+
+def _is_percentage_fact(fact: dict[str, Any]) -> bool:
+    return "%" in str(fact.get("raw_value") or "") or "%" in str(fact.get("period_label") or "")
 
 def _is_latest_period_fact(fact: dict[str, Any], facts: list[dict[str, Any]]) -> bool:
     period_key = _period_sort_key(str(fact.get("period_label") or ""))
@@ -159,10 +199,38 @@ def _is_latest_period_fact(fact: dict[str, Any], facts: list[dict[str, Any]]) ->
         if other.get("table_id") == fact.get("table_id")
         and other.get("metric") == fact.get("metric")
         and str(other.get("metric_label") or "").lower() == str(fact.get("metric_label") or "").lower()
-        and "%" not in str(other.get("raw_value") or "")
+        and not _is_percentage_fact(other)
     ]
     comparable = [item for item in comparable if item is not None]
     return not comparable or period_key == max(comparable)
+
+
+def _latest_requested(lowered_query: str) -> bool:
+    return any(term in lowered_query for term in ("最新", "最近", "近期", "latest", "most recent"))
+
+
+def _global_latest_period_rank(fact: dict[str, Any], facts: list[dict[str, Any]]) -> int | None:
+    period_key = _period_sort_key(str(fact.get("period_label") or ""))
+    if period_key is None:
+        return None
+    company = str(fact.get("company") or "")
+    metric = fact.get("metric")
+    comparable = sorted(
+        {
+            key
+            for other in facts
+            if str(other.get("company") or "") == company
+            and other.get("metric") == metric
+            and "%" not in str(other.get("raw_value") or "")
+            for key in [_period_sort_key(str(other.get("period_label") or ""))]
+            if key is not None
+        },
+        reverse=True,
+    )
+    try:
+        return comparable.index(period_key)
+    except ValueError:
+        return None
 
 
 def _period_sort_key(period_label: str) -> tuple[int, int, int] | None:
@@ -198,7 +266,7 @@ def _is_total_metric_fact(fact: dict[str, Any], facts: list[dict[str, Any]]) -> 
         and str(other.get("metric_label") or "").lower() == metric_label
         and int(other.get("row_index") or 0) == row_index
         and str(other.get("period_label") or "") == str(fact.get("period_label") or "")
-        and "%" not in str(other.get("raw_value") or "")
+        and not _is_percentage_fact(other)
     ]
     return bool(same_group_columns) and column_index == max(same_group_columns)
 
@@ -261,18 +329,21 @@ def _current_period_fact(fact: dict[str, Any], requested_quarter: str) -> bool:
     return False
 
 
-def _fact_sort_key(fact: dict[str, Any], requested_quarter: str | None) -> tuple[int, int, int, str, str, str, int]:
+def _fact_sort_key(fact: dict[str, Any], requested_quarter: str | None, latest_requested: bool = False) -> tuple[Any, ...]:
     source_name = str(fact.get("source_pdf_name") or "")
     period_label = str(fact.get("period_label") or "")
     metric_label = str(fact.get("metric_label") or "").lower()
     row_index = int(fact.get("row_index") or 0)
     current_rank = 0 if requested_quarter and _current_period_fact(fact, requested_quarter) else 1
+    period_key = _period_sort_key(period_label) if latest_requested else None
+    latest_rank = tuple(-part for part in period_key) if period_key else (0, 0, 0)
     metric_rank = 0 if row_index == 0 and metric_label == "revenue" else 1 if metric_label == "total revenue" else 2
     pct_rank = 1 if "%" in str(fact.get("raw_value") or "") else 0
     return (
         current_rank,
         metric_rank,
         pct_rank,
+        latest_rank,
         source_name,
         period_label,
         str(fact.get("fact_id") or ""),

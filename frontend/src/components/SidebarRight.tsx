@@ -6,13 +6,15 @@ interface SidebarRightProps {
   bm25Docs: Document[];
   vectorDocs: Document[];
   rerankDocs: Document[];
+  bm25Error?: string | null;
+  vectorError?: string | null;
   activeCitationId: string | null;
   activeSnapshotLabel?: string;
 }
 
 type PanelKey = 'bm25' | 'vector' | 'rerank';
 
-export function SidebarRight({ bm25Docs, vectorDocs, rerankDocs, activeCitationId, activeSnapshotLabel }: SidebarRightProps) {
+export function SidebarRight({ bm25Docs, vectorDocs, rerankDocs, activeCitationId, activeSnapshotLabel, bm25Error, vectorError }: SidebarRightProps) {
   const [openPanels, setOpenPanels] = useState<Record<PanelKey, boolean>>({
     bm25: false,
     vector: false,
@@ -43,13 +45,13 @@ export function SidebarRight({ bm25Docs, vectorDocs, rerankDocs, activeCitationI
       </div>
       <div className="p-3 space-y-4">
         <RetrievalPanel title="BM25 关键词召回 (Top 10)" open={openPanels.bm25} onToggle={() => togglePanel('bm25')} tone="neutral">
-          {bm25Docs.length ? bm25Docs.map(doc => (
+          {bm25Error ? <ErrorPanel text={bm25Error} /> : bm25Docs.length ? bm25Docs.map(doc => (
             <DocItem key={doc.id} doc={doc} isActive={isDocActive(doc)} maxScore={Math.max(1, ...bm25Docs.map(item => item.score))} type="bm25" />
           )) : <EmptyPanel text="暂无 BM25 召回结果" />}
         </RetrievalPanel>
 
         <RetrievalPanel title="Vector 语义召回 (Top 10)" open={openPanels.vector} onToggle={() => togglePanel('vector')} tone="neutral">
-          {vectorDocs.length ? vectorDocs.map(doc => (
+          {vectorError ? <ErrorPanel text={vectorError} /> : vectorDocs.length ? vectorDocs.map(doc => (
             <DocItem key={doc.id} doc={doc} isActive={isDocActive(doc)} maxScore={Math.max(1, ...vectorDocs.map(item => item.score))} type="vector" />
           )) : <EmptyPanel text="暂无 Vector 召回结果" />}
         </RetrievalPanel>
@@ -93,6 +95,10 @@ function RetrievalPanel({ title, open, onToggle, tone, children }: { title: stri
 
 function EmptyPanel({ text }: { text: string }) {
   return <div className="p-3 text-center text-slate-400">{text}</div>;
+}
+
+function ErrorPanel({ text }: { text: string }) {
+  return <div className="p-3 rounded border border-amber-200 bg-amber-50 text-amber-700 leading-relaxed break-words">召回降级：{text}</div>;
 }
 
 function DocItem({ doc, isActive, maxScore, type }: { doc: Document; isActive: boolean; maxScore: number; type: 'bm25' | 'vector' }) {

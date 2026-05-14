@@ -80,6 +80,8 @@ export default function App() {
               ...(message.retrievalSnapshot ?? emptySnapshot()),
               bm25Docs,
               vectorDocs,
+              bm25Error: payload.bm25_error ?? null,
+              vectorError: payload.vector_error ?? null,
             },
           }));
         },
@@ -224,6 +226,8 @@ export default function App() {
           rerankDocs={activeSnapshot.rerankDocs}
           activeCitationId={activeCitationId}
           activeSnapshotLabel={activeSnapshotLabel}
+          bm25Error={activeSnapshot.bm25Error}
+          vectorError={activeSnapshot.vectorError}
         />
       </main>
     </div>
@@ -231,11 +235,11 @@ export default function App() {
 }
 
 function emptySnapshot(): RetrievalSnapshot {
-  return { bm25Docs: [], vectorDocs: [], rerankDocs: [] };
+  return { bm25Docs: [], vectorDocs: [], rerankDocs: [], bm25Error: null, vectorError: null };
 }
 
 function defaultSnapshot(): RetrievalSnapshot {
-  return { bm25Docs: mockBM25Docs, vectorDocs: mockVectorDocs, rerankDocs: mockRerankDocs };
+  return { bm25Docs: mockBM25Docs, vectorDocs: mockVectorDocs, rerankDocs: mockRerankDocs, bm25Error: null, vectorError: null };
 }
 
 function mockLibraryDocuments(): LibraryDocument[] {

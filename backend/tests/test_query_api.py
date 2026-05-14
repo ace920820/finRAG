@@ -68,6 +68,29 @@ def test_query_endpoint_streams_expected_events():
     assert '1' in done['citations']
 
 
+
+def test_query_endpoint_exposes_vector_retrieval_error(monkeypatch):
+    class FakeRetrievalResult:
+        bm25_results = []
+        vector_results = []
+        fused_top20 = []
+        bm25_error = None
+        vector_error = "Vector index dimension mismatch"
+
+    class FakeRetriever:
+        def retrieve(self, query):
+            return FakeRetrievalResult()
+
+    monkeypatch.setattr("app.api.query.HybridRetriever.load_default", lambda: FakeRetriever())
+
+    client = TestClient(create_app())
+    response = client.post('/api/query', json={'query': '贵州茅台最新的营收数据'})
+
+    assert response.status_code == 200
+    retrieval = _event(_parse_sse(response.text), 'retrieval_complete')
+    assert retrieval['vector_results'] == []
+    assert retrieval['vector_error'] == "Vector index dimension mismatch"
+
 def test_query_endpoint_rejects_invalid_body():
     client = TestClient(create_app())
     response = client.post('/api/query', json={'query': ''})
@@ -126,3 +149,41 @@ def test_query_endpoint_returns_table_fact_metadata_for_nvidia_revenue(monkeypat
     assert citation['metadata']['chunk_type'] == 'table_fact'
     assert citation['metadata']['table_id']
     assert citation['metadata']['raw_value'] == '57,006'
+
+
+def test_query_endpoint_exposes_retrieval_channel_errors(monkeypatch):
+    table_fact = RetrievalResultItem(
+        chunk_id="fact-moutai-q1-revenue",
+        title="600519SH_moutai_quarterly_report_2026Q1_2026-04-25_cninfo.pdf",
+        doc_type="financial_report",
+        company="贵州茅台",
+        date="2026-04-25",
+        page=1,
+        preview="Table fact: 一、营业总收入 = 54,702,912,385.23",
+        score=0.9,
+        content="Table fact: 一、营业总收入 = 54,702,912,385.23 | period: 2026年第一季度",
+        metadata={"chunk_type": "table_fact", "metric": "revenue", "raw_value": "54,702,912,385.23"},
+    )
+
+    class FakeRetrievalResult:
+        bm25_results = [table_fact]
+        vector_results = []
+        fused_top20 = [table_fact]
+        bm25_error = None
+        vector_error = "Vector index dimension mismatch: query=1024, index=8"
+
+    class FakeRetriever:
+        def retrieve(self, query):
+            return FakeRetrievalResult()
+
+    monkeypatch.setattr("app.api.query.HybridRetriever.load_default", lambda: FakeRetriever())
+
+    client = TestClient(create_app())
+    response = client.post('/api/query', json={'query': '贵州茅台最新的营收数据'})
+
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    retrieval = _event(events, 'retrieval_complete')
+    assert retrieval['vector_results'] == []
+    assert retrieval['vector_error'] == "Vector index dimension mismatch: query=1024, index=8"
+    assert retrieval['bm25_error'] is None

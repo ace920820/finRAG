@@ -15,6 +15,8 @@ class RetrievalCompleteEvent(BaseModel):
     bm25_results: list[RetrievalResultItem] = Field(default_factory=list)
     vector_results: list[RetrievalResultItem] = Field(default_factory=list)
     fused_top20: list[RetrievalResultItem] = Field(default_factory=list)
+    bm25_error: Optional[str] = None
+    vector_error: Optional[str] = None
 
 
 class RerankCompleteEvent(BaseModel):

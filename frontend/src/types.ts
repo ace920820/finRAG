@@ -29,6 +29,8 @@ export interface RetrievalSnapshot {
   bm25Docs: Document[];
   vectorDocs: Document[];
   rerankDocs: Document[];
+  bm25Error?: string | null;
+  vectorError?: string | null;
   citations?: Record<string, unknown>;
 }
 

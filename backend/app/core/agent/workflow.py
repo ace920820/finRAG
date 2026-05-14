@@ -57,6 +57,8 @@ class QueryWorkflow:
                 bm25_results=retrieval_result.bm25_results,
                 vector_results=retrieval_result.vector_results,
                 fused_top20=retrieval_result.fused_top20,
+                bm25_error=getattr(retrieval_result, "bm25_error", None),
+                vector_error=getattr(retrieval_result, "vector_error", None),
             )
             logger.info("rerank started candidates=%d", len(retrieval_result.fused_top20))
             rerank_result = self.rerank_service.rerank(request.query, retrieval_result.fused_top20)

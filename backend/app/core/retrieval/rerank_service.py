@@ -108,6 +108,8 @@ class RerankService:
                 boost += 10.0
                 if "current_period" in reasons:
                     boost += 6.0
+                if "latest_period" in reasons:
+                    boost += 6.0
                 if "total_value" in reasons:
                     boost += 6.0
                 if any(str(reason).startswith(("period_year:", "fiscal_year:")) for reason in reasons):

@@ -46,6 +46,8 @@ def query(request: QueryRequest) -> StreamingResponse:
                     bm25_results=retrieval_result.bm25_results,
                     vector_results=retrieval_result.vector_results,
                     fused_top20=retrieval_result.fused_top20,
+                    bm25_error=getattr(retrieval_result, "bm25_error", None),
+                    vector_error=getattr(retrieval_result, "vector_error", None),
                 )
                 yield format_sse_event("retrieval_complete", retrieval)
                 retrieval_emitted = True

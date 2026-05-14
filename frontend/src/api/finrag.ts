@@ -62,6 +62,8 @@ export interface RetrievalCompletePayload {
   bm25_results: BackendRetrievalResultItem[];
   vector_results: BackendRetrievalResultItem[];
   fused_top20: BackendRetrievalResultItem[];
+  bm25_error?: string | null;
+  vector_error?: string | null;
 }
 
 export interface RerankCompletePayload {
