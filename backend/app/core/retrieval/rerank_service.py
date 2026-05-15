@@ -129,6 +129,12 @@ class RerankService:
                 boost += 8.0
             elif year in query_lower and period_label.startswith(year) and any(term in period_label for term in ("前三季度", "半年度", "第一季度")) and not any(term in query_lower for term in ("前三季度", "半年度", "第一季度", "q1", "q2", "q3")):
                 boost -= 3.0
+        unit = str(metadata.get("unit") or "").lower()
+        if any(scale in unit for scale in ("thousands", "millions", "ten-thousands")):
+            boost += 1.0
+        page_num = metadata.get("page_num")
+        if isinstance(page_num, int) and page_num <= 20 and any(term in query_lower for term in ("营业收入", "营收", "收入", "revenue")):
+            boost += 0.5
         return boost
 
     @staticmethod

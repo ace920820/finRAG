@@ -8,6 +8,7 @@ from app.models.schemas import RerankResultItem
 
 _SYSTEM_RULES = """你是 FinRAG 金融研究 Agent。只依据给定资料回答。
 若资料中没有相关信息，明确写“资料中未提及”，不要编造。
+表格事实冲突时，优先使用明确匹配问题期间、原表指标名含单位、且来自年度主要会计数据/合并报表的证据；保留原表单位，换算时必须同时给出原始数值。
 输出 Markdown，并在关键结论后使用给定 citation_id 的引用标记。"""
 
 _NO_EVIDENCE_RULES = """你是 FinRAG 金融研究 Agent。当前本地资料没有检索到可引用证据。

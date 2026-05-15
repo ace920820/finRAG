@@ -59,6 +59,7 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
     requested_years = set(re.findall(r"20\d{2}", lowered))
     requested_quarter = _requested_quarter(lowered)
     latest_requested = _latest_requested(lowered)
+    change_requested = _change_requested(lowered)
     if not requested_metric or not requested_companies:
         return []
     matches: list[TableFactMatch] = []
@@ -68,7 +69,9 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
     for fact in fact_items:
         if fact.get("metric") != requested_metric:
             continue
-        if _is_percentage_fact(fact):
+        if _is_percentage_fact(fact) and not change_requested:
+            continue
+        if _is_percentage_fact(fact) and change_requested and not _is_change_fact(fact):
             continue
         if latest_source_key is not None and _source_sort_key(str(fact.get("source_pdf_name") or "")) != latest_source_key:
             continue
@@ -91,6 +94,9 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
         if fact.get("value") is not None:
             score += 0.5
             reasons.append("value")
+        if change_requested and _is_percentage_fact(fact):
+            score += 0.05
+            reasons.append("change_value")
         score += 0.2
         metric_label = str(fact.get("metric_label") or "").lower()
         if total_metric_requested and ("total" in metric_label or metric_label == "revenue"):
@@ -102,10 +108,15 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
         year_matched = False
         for year in requested_years:
             if year in period_label:
+                if not requested_quarter and _is_subperiod_label(period_label) and not _is_change_fact(fact):
+                    continue
                 score += 3.0
                 reasons.append(f"period_year:{year}")
                 year_matched = True
-            elif f"fy{year}" in source_name.lower():
+                if not requested_quarter and not _is_subperiod_label(period_label):
+                    score += 0.1
+                    reasons.append("annual_period")
+            elif not _period_has_explicit_year(period_label) and f"fy{year}" in source_name.lower():
                 score += 3.0
                 reasons.append(f"fiscal_year:{year}")
                 year_matched = True
@@ -144,7 +155,8 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
             reasons.append("nine_months")
         if score >= 7.0:
             matches.append(TableFactMatch(fact=fact, score=score, reasons=reasons))
-    return sorted(matches, key=lambda item: (-item.score, _fact_sort_key(item.fact, requested_quarter, latest_requested)))[:top_k]
+    ranked = sorted(matches, key=lambda item: (-item.score, _fact_sort_key(item.fact, requested_quarter, latest_requested)))
+    return _diversify_matches(ranked, top_k)
 
 
 def is_table_metric_query(query: str) -> bool:
@@ -157,6 +169,9 @@ def is_table_fact_period_compatible(query: str, fact: dict[str, Any]) -> bool:
     requested_years = set(re.findall(r"20\d{2}", lowered))
     if not requested_years:
         return True
+    period_label = str(fact.get("period_label") or "")
+    if _period_has_explicit_year(period_label):
+        return any(year in period_label for year in requested_years)
     haystack = " ".join(
         str(fact.get(field) or "")
         for field in ("period_label", "source_pdf_name", "source", "title", "date")
@@ -189,6 +204,17 @@ def _source_sort_key(source_name: str) -> tuple[int, int, int]:
 def _is_percentage_fact(fact: dict[str, Any]) -> bool:
     return "%" in str(fact.get("raw_value") or "") or "%" in str(fact.get("period_label") or "")
 
+
+def _is_change_fact(fact: dict[str, Any]) -> bool:
+    label = f"{fact.get('period_label') or ''} {fact.get('metric_label') or ''}".lower()
+    compact = re.sub(r"\s+", "", label)
+    return any(marker in compact for marker in ("增减", "同比", "比上年", "比同期", "yoy", "change"))
+
+
+def _is_subperiod_label(period_label: str) -> bool:
+    compact = re.sub(r"\s+", "", period_label.lower())
+    return any(marker in compact for marker in ("季度", "q1", "q2", "q3", "q4", "半年度", "前三季度", "1-3月", "1-6月", "1-9月", "月30日", "月31日"))
+
 def _is_latest_period_fact(fact: dict[str, Any], facts: list[dict[str, Any]]) -> bool:
     period_key = _period_sort_key(str(fact.get("period_label") or ""))
     if period_key is None:
@@ -207,6 +233,10 @@ def _is_latest_period_fact(fact: dict[str, Any], facts: list[dict[str, Any]]) ->
 
 def _latest_requested(lowered_query: str) -> bool:
     return any(term in lowered_query for term in ("最新", "最近", "近期", "latest", "most recent"))
+
+
+def _change_requested(lowered_query: str) -> bool:
+    return any(term in lowered_query for term in ("同比", "增减", "变化", "增长", "下降", "yoy", "change"))
 
 
 def _global_latest_period_rank(fact: dict[str, Any], facts: list[dict[str, Any]]) -> int | None:
@@ -246,6 +276,35 @@ def _period_sort_key(period_label: str) -> tuple[int, int, int] | None:
         month = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec").index(month_name) + 1
         day = int(month_match.group(1))
     return (year, month, day)
+
+
+def _period_has_explicit_year(period_label: str) -> bool:
+    return re.search(r"20\d{2}", period_label) is not None
+
+
+def _diversify_matches(matches: list[TableFactMatch], top_k: int) -> list[TableFactMatch]:
+    selected: list[TableFactMatch] = []
+    seen_values: set[tuple[str, str, str]] = set()
+    for match in matches:
+        fact = match.fact
+        key = (
+            str(fact.get("metric") or ""),
+            str(fact.get("raw_value") or ""),
+            _period_year_key(str(fact.get("period_label") or "")),
+        )
+        if not _is_percentage_fact(fact) and key in seen_values:
+            continue
+        selected.append(match)
+        if not _is_percentage_fact(fact):
+            seen_values.add(key)
+        if len(selected) >= top_k:
+            return selected
+    return selected
+
+
+def _period_year_key(period_label: str) -> str:
+    match = re.search(r"20\d{2}", period_label)
+    return match.group(0) if match else period_label
 
 def _is_total_metric_fact(fact: dict[str, Any], facts: list[dict[str, Any]]) -> bool:
     metric_label = str(fact.get("metric_label") or "").lower()
@@ -334,16 +393,23 @@ def _fact_sort_key(fact: dict[str, Any], requested_quarter: str | None, latest_r
     period_label = str(fact.get("period_label") or "")
     metric_label = str(fact.get("metric_label") or "").lower()
     row_index = int(fact.get("row_index") or 0)
+    page_num = int(fact.get("page_num") or 9999)
+    unit = str(fact.get("unit") or "").lower()
     current_rank = 0 if requested_quarter and _current_period_fact(fact, requested_quarter) else 1
     period_key = _period_sort_key(period_label) if latest_requested else None
     latest_rank = tuple(-part for part in period_key) if period_key else (0, 0, 0)
-    metric_rank = 0 if row_index == 0 and metric_label == "revenue" else 1 if metric_label == "total revenue" else 2
-    pct_rank = 1 if "%" in str(fact.get("raw_value") or "") else 0
+    summary_rank = 0 if "（" in metric_label or "(" in metric_label or page_num <= 20 else 1
+    unit_rank = 0 if any(scale in unit for scale in ("thousands", "millions", "ten-thousands")) else 1
+    metric_rank = 0 if metric_label in {"revenue", "营业收入"} or "营业收入（" in metric_label else 1 if "total" in metric_label or "合计" in metric_label else 2
+    pct_rank = 1 if _is_percentage_fact(fact) else 0
     return (
         current_rank,
+        summary_rank,
+        unit_rank,
         metric_rank,
         pct_rank,
         latest_rank,
+        page_num,
         source_name,
         period_label,
         str(fact.get("fact_id") or ""),

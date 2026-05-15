@@ -54,6 +54,138 @@ def test_query_table_facts_rejects_mismatched_requested_year():
     assert matches == []
 
 
+def test_query_table_facts_does_not_use_source_fy_when_period_has_different_year():
+    matches = query_table_facts(
+        "宁德时代2024年营业收入是多少？",
+        facts=[
+            _fact(
+                fact_id="catl-2023-in-fy2024-file",
+                company="宁德时代",
+                metric_label="营业收入（千元）",
+                period_label="2023年",
+                raw_value="400,917,045",
+                value=400917045,
+                source_pdf_name="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+            )
+        ],
+    )
+
+    assert matches == []
+
+
+def test_query_table_facts_prefers_requested_annual_summary_fact_over_conflicts():
+    matches = query_table_facts(
+        "宁德时代2024年营业收入是多少？同比变化如何？",
+        facts=[
+            _fact(
+                fact_id="catl-2024-parent-only",
+                company="宁德时代",
+                metric_label="一、营业收入",
+                period_label="2024年度",
+                raw_value="222,629,450",
+                value=222629450,
+                source_pdf_name="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+                page_num=121,
+                table_id="tbl-parent-income",
+            ),
+            _fact(
+                fact_id="catl-2024-summary",
+                company="宁德时代",
+                metric_label="营业收入（千元）",
+                period_label="2024年",
+                raw_value="362,012,554",
+                value=362012554,
+                source_pdf_name="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+                page_num=9,
+                table_id="tbl-annual-summary",
+            ),
+            _fact(
+                fact_id="catl-2023-summary",
+                company="宁德时代",
+                metric_label="营业收入（千元）",
+                period_label="2023年",
+                raw_value="400,917,045",
+                value=400917045,
+                source_pdf_name="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+                page_num=9,
+                table_id="tbl-annual-summary",
+            ),
+        ],
+        top_k=5,
+    )
+
+    assert matches
+    assert matches[0].fact["fact_id"] == "catl-2024-summary"
+    assert all(match.fact["fact_id"] != "catl-2023-summary" for match in matches)
+
+
+def test_query_table_facts_includes_yoy_percentage_when_change_requested():
+    matches = query_table_facts(
+        "宁德时代2024年营业收入是多少？同比变化如何？",
+        facts=[
+            _fact(
+                fact_id="catl-2024-revenue",
+                company="宁德时代",
+                metric_label="营业收入（千元）",
+                period_label="2024年",
+                raw_value="362,012,554",
+                value=362012554,
+                source_pdf_name="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+            ),
+            _fact(
+                fact_id="catl-2024-yoy",
+                company="宁德时代",
+                metric_label="营业收入（千元）",
+                period_label="本年比上年 增减",
+                raw_value="-9.70%",
+                value=-9.7,
+                source_pdf_name="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+            ),
+        ],
+        top_k=5,
+    )
+
+    assert [match.fact["fact_id"] for match in matches] == ["catl-2024-revenue", "catl-2024-yoy"]
+
+
+def test_query_table_facts_filters_quarter_and_ratio_for_annual_query():
+    matches = query_table_facts(
+        "宁德时代2024年营业收入是多少？同比变化如何？",
+        facts=[
+            _fact(
+                fact_id="catl-annual",
+                company="宁德时代",
+                metric_label="营业收入（千元）",
+                period_label="2024年",
+                raw_value="362,012,554",
+                value=362012554,
+                source_pdf_name="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+            ),
+            _fact(
+                fact_id="catl-q1",
+                company="宁德时代",
+                metric_label="营业收入",
+                period_label="2024年1-3月",
+                raw_value="7,977,077.86",
+                value=7977077.86,
+                source_pdf_name="300750SZ_catl_quarterly_report_2024Q1_2024-04-16_cninfo.pdf",
+            ),
+            _fact(
+                fact_id="catl-ratio",
+                company="宁德时代",
+                metric_label="营业收入合计",
+                period_label="2024年",
+                raw_value="100.00%",
+                value=100,
+                source_pdf_name="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+            ),
+        ],
+        top_k=5,
+    )
+
+    assert [match.fact["fact_id"] for match in matches] == ["catl-annual"]
+
+
 def test_query_table_facts_current_period_uses_period_header_not_nvidia_column_index():
     matches = query_table_facts(
         "英伟达2026年第三季度的总营收是多少？",

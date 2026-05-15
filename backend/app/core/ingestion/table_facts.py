@@ -97,7 +97,8 @@ def extract_table_facts(*, raw_frontmatter: dict[str, str], document: Document, 
             continue
         for column_index, raw_value in _numeric_cells(row):
             value = parse_number(raw_value)
-            period_label = _period_label_for_cell(headers, column_index, active_period_label)
+            period_label = _period_label_for_cell(headers, row, column_index, active_period_label)
+            fact_unit = "%" if "%" in str(raw_value) else unit
             fact_seed = ":".join(
                 [document.doc_id, table_id, metric, str(row_index), str(column_index), str(raw_value)]
             )
@@ -117,7 +118,7 @@ def extract_table_facts(*, raw_frontmatter: dict[str, str], document: Document, 
                     "period_label": period_label or f"column_{column_index + 1}",
                     "value": value,
                     "raw_value": str(raw_value),
-                    "unit": unit,
+                    "unit": fact_unit,
                     "currency": currency,
                     "collection": str(table_artifact.table.get("collection") or raw_frontmatter.get("collection") or "default"),
                     "row_index": row_index,
@@ -129,12 +130,15 @@ def extract_table_facts(*, raw_frontmatter: dict[str, str], document: Document, 
 
 
 
-def _period_label_for_cell(headers: list[str], column_index: int, active_period_label: str) -> str:
+def _period_label_for_cell(headers: list[str], row: list[str], column_index: int, active_period_label: str) -> str:
     if active_period_label:
         return active_period_label
     direct = headers[column_index].strip() if column_index < len(headers) else ""
-    if _looks_like_period_label(direct):
+    if _is_explicit_period_or_delta_label(direct):
         return direct
+    shifted = headers[column_index + 1].strip() if column_index + 1 < len(headers) else ""
+    if _is_spacer_header(direct) and _is_explicit_period_or_delta_label(shifted) and _cell_empty(row, column_index + 1):
+        return shifted
     return _left_filled_period_label(headers, column_index)
 
 
@@ -145,6 +149,24 @@ def _left_filled_period_label(headers: list[str], column_index: int) -> str:
         if _looks_like_period_label(label):
             return label
     return ""
+
+
+def _cell_empty(row: list[str], index: int) -> bool:
+    return index >= len(row) or not row[index].strip()
+
+
+def _is_spacer_header(label: str) -> bool:
+    return not label.strip() or re.fullmatch(r"column\s+\d+", label.strip(), re.IGNORECASE) is not None
+
+
+def _is_explicit_period_or_delta_label(label: str) -> bool:
+    return _looks_like_period_label(label) or _looks_like_change_label(label)
+
+
+def _looks_like_change_label(label: str) -> bool:
+    compact = re.sub(r"\s+", "", label)
+    lowered = compact.lower()
+    return any(marker in lowered for marker in ("增减", "同比", "比上年", "比同期", "yoy", "change"))
 
 
 def _period_label_from_row(row: list[str]) -> str:
@@ -297,6 +319,10 @@ def _infer_unit(document: Document, table: dict[str, Any]) -> str:
         return "USD millions"
     if "tsmc" in text or "台积电" in text:
         return "TWD thousands"
+    if "千元" in text:
+        return "CNY thousands"
+    if "万元" in text:
+        return "CNY ten-thousands"
     if any(marker in text for marker in ("宁德时代", "贵州茅台", "cninfo", "人民币")):
         return "CNY"
     return "unknown"

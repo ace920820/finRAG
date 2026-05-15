@@ -52,3 +52,67 @@ def test_extract_table_facts_is_deterministic_and_traceable(tmp_path):
     assert first[0]["page_num"] == 3
     assert first[0]["currency"] == "USD"
     assert first[0]["unit"] == "USD millions"
+
+
+def test_extract_table_facts_aligns_spacer_columns_and_preserves_cny_scale(tmp_path):
+    document = Document(
+        doc_id="doc-catl",
+        company="宁德时代",
+        company_aliases=["CATL", "300750"],
+        doc_type="financial_report",
+        title="CATL FY2024",
+        date="2025-03-15",
+        source="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+        content="",
+    )
+    table = {
+        "table_id": "tbl-catl-summary",
+        "collection": "reports",
+        "source_pdf_name": "300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+        "source_pdf_path": "/source/CATL.pdf",
+        "page_num": 9,
+        "title": "主要会计数据和财务指标",
+        "headers": ["项目", "Column 2", "2024年", "2023年", "本年比上年 增减", "Column 6", "2022年", "Column 8", "Column 9"],
+        "rows": [["", "营业收入（千元）", "362,012,554", "400,917,045", "-9.70%", "328,593,988", "", "328,593,988", ""]],
+        "markdown": "| 项目 | Column 2 | 2024年 | 2023年 | 本年比上年 增减 | Column 6 | 2022年 | Column 8 | Column 9 |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| | 营业收入（千元） | 362,012,554 | 400,917,045 | -9.70% | 328,593,988 | | 328,593,988 | |",
+    }
+    artifact = TableArtifact(table=table, json_path=tmp_path / "tbl-catl-summary.json")
+
+    facts = extract_table_facts(raw_frontmatter={}, document=document, table_artifact=artifact)
+
+    by_value = {fact["raw_value"]: fact for fact in facts}
+    assert by_value["362,012,554"]["period_label"] == "2024年"
+    assert by_value["400,917,045"]["period_label"] == "2023年"
+    assert by_value["-9.70%"]["period_label"] == "本年比上年 增减"
+    assert by_value["328,593,988"]["period_label"] == "2022年"
+    assert by_value["362,012,554"]["currency"] == "CNY"
+    assert by_value["362,012,554"]["unit"] == "CNY thousands"
+
+
+def test_extract_table_facts_aligns_cninfo_amount_spacer_header(tmp_path):
+    document = Document(
+        doc_id="doc-catl",
+        company="宁德时代",
+        company_aliases=["CATL", "300750"],
+        doc_type="financial_report",
+        title="CATL FY2024",
+        date="2025-03-15",
+        source="300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+        content="",
+    )
+    table = {
+        "table_id": "tbl-catl-income",
+        "source_pdf_name": "300750SZ_catl_annual_report_FY2024_2025-03-15_cninfo.pdf",
+        "page_num": 119,
+        "title": "合并利润表",
+        "headers": ["项目", "Column 2", "2024年度", "Column 4", "Column 5", "Column 6", "2023年度"],
+        "rows": [["一、营业总收入", "362,012,554", "", "", "", "400,917,045", ""]],
+        "markdown": "| 项目 | Column 2 | 2024年度 | Column 4 | Column 5 | Column 6 | 2023年度 |\n| --- | --- | --- | --- | --- | --- | --- |\n| 一、营业总收入 | 362,012,554 | | | | 400,917,045 | |",
+    }
+    artifact = TableArtifact(table=table, json_path=tmp_path / "tbl-catl-income.json")
+
+    facts = extract_table_facts(raw_frontmatter={}, document=document, table_artifact=artifact)
+
+    by_value = {fact["raw_value"]: fact for fact in facts}
+    assert by_value["362,012,554"]["period_label"] == "2024年度"
+    assert by_value["400,917,045"]["period_label"] == "2023年度"
