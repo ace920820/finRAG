@@ -1,0 +1,414 @@
+# *如何在PDF中识别出这些表格并转化为markdown格式*
+这个项目里要分清两层：**PDF 表格识别/保存** 和 **FinRAG 导入/检索使用**。当前仓库里主要能看到第二层；第一层是由外部/相邻的 `pdf2md` 工具生成结果后放进 `backend/app/data/raw`。
+
+**整体流程**
+- **PDF 输入**：原始 PDF 放在数据源目录，例如财报、研报 PDF。
+- **PDF→Markdown/Text**：`pdf2md` 工具把 PDF 文本层抽出，生成 `backend/app/data/raw/extracted/<collection>/*.md`。
+- **PDF→表格 artifacts**：同一次抽取里，表格被单独识别，生成 `backend/app/data/raw/tables/<collection>/<pdf-stem>/*.json` 和 `*.csv`。
+- **FinRAG 导入**：`backend/scripts/import_corpus.py` 读取 extracted Markdown 和 tables JSON，写入 `backend/app/data/processed/chunks.json`、`documents.json`、`table_facts.json`。
+- **检索使用**：表格 Markdown 被作为 `chunk_type = table` 的独立 chunk 进入检索；重要财务行还会变成 `table_row` chunk 和结构化 `table_facts`。
+
+**PDF 表格怎么识别**
+README 里给出的抽取命令是：
+
+```bash
+cd pdf2md
+python3 -m elite_daily_pdf_to_md.cli \
+  --profile finrag \
+  --source-dir "/your/data/source_documents" \
+  --raw-root "/path/to/finRAG/backend/app/data/raw" \
+  --collection-name "finrag-user-source" \
+  --extractor pymupdf
+```
+
+这个步骤会生成：
+
+```text
+backend/app/data/raw/extracted/<collection-name>/*.md
+backend/app/data/raw/tables/<collection-name>/**/*.json
+backend/app/data/raw/tables/<collection-name>/**/*.csv
+backend/app/data/raw/_meta/*manifest*.json
+```
+
+也就是说，**真正的 PDF 表格识别逻辑不在 `backend/app/core/ingestion` 里，而是在 `pdf2md / elite_daily_pdf_to_md.cli` 这个抽取工具里**。FinRAG 后端拿到的是已经抽好的表格 JSON/CSV。
+
+**每张表保存成什么样**
+例如你打开的文件：
+
+`backend/app/data/raw/tables/finrag-user-source-40/300750SZ_catl_research_report_2026-04-17_dfcfw_bocom/tbl-e348d6047ad6-p0005-t01.json:1`
+
+典型字段包括：
+
+- `table_id`：表格唯一 ID，例如 `tbl-e348d6047ad6-p0005-t01`
+- `source_pdf_name`：来源 PDF
+- `page_num`：来自第几页
+- `table_index`：这一页第几张表
+- `headers`：表头数组
+- `rows`：二维数组形式的表格数据
+- `markdown`：转换后的 Markdown 表格
+- `csv_path`：对应 CSV 文件路径
+- `extraction_method`：通常是 `pdfplumber`
+
+所以保存逻辑是：**结构化 JSON + 可打开 CSV + Markdown 字符串**。Markdown 不是单独 `.md` 表格文件，而是 JSON 的 `markdown` 字段。
+
+**FinRAG 如何把表格放进 chunks**
+关键代码在：
+
+`backend/app/core/ingestion/corpus_importer.py:103`
+
+流程是：
+
+- `_table_chunks_for_document(...)` 找到当前文档对应的表格目录。
+- `_table_artifact_dir(...)` 优先读 Markdown frontmatter 里的 `table_artifact_dir`。
+- 遍历目录下所有 `*.json`，跳过 `._*` macOS 元数据文件。
+- 读取每个 table JSON。
+- 如果 `markdown` 字段非空，就创建一个独立表格 chunk。
+- chunk 内容由 `_render_table_chunk_content(...)` 生成。
+
+生成的表格 chunk 形态大概是：
+
+```text
+Table: 300750SZ_catl_research_report_2026-04-17_dfcfw_bocom page 5 table 1
+
+Page: 5
+
+| 评级定义 | Column 2 |
+| --- | --- |
+| ... |
+```
+
+对应代码在：
+
+`backend/app/core/ingestion/corpus_importer.py:199`
+
+它只是把 `title`、`page_num`、`markdown` 拼起来，不重新识别表格。
+
+**FinRAG 如何知道某篇 Markdown 对应哪些表**
+看任意 extracted Markdown 的 frontmatter，例如：
+
+`backend/app/data/raw/extracted/finrag-user-source-40/300750SZ-catl-research-report-2026-04-17-dfcfw-bocom.md:1`
+
+里面有：
+
+```yaml
+table_manifest_path: "../backend/app/data/raw/_meta/finrag-user-source-40-table-manifest.json"
+table_artifact_dir: "../backend/app/data/raw/tables/finrag-user-source-40/300750SZ_catl_research_report_2026-04-17_dfcfw_bocom"
+```
+
+这两个字段非常关键：
+
+- `table_manifest_path` 指向全局表格清单。
+- `table_artifact_dir` 指向这篇 PDF 的所有表格 JSON/CSV。
+
+**金融事实是怎么抽的**
+表格本身进入 `chunks.json` 后，项目还会做一层“财务指标行识别”。代码在：
+
+`backend/app/core/ingestion/table_facts.py:79`
+
+它做的事情是：
+
+- 判断表格是不是金融表：看 `markdown`、`title`、前若干行里是否出现收入、净利润、毛利、资产等核心指标。
+- 遍历每一行。
+- 找到指标名，比如 `revenue`、`net_income` 等。
+- 找到数字单元格。
+- 根据表头推断期间，例如 `2024年`、`2023年`。
+- 生成结构化事实，写入 `backend/app/data/processed/table_facts.json:1`。
+
+例如一条事实会包含：
+
+- `table_id`
+- `metric`
+- `metric_label`
+- `period_label`
+- `raw_value`
+- `value`
+- `page_num`
+- `source_pdf_name`
+- `table_json_path`
+
+所以 `table_facts.json` 不是原始表格，而是从表格中进一步抽出的“财务事实索引”。
+
+**准确性来自哪里**
+当前项目的准确性主要依赖这几步：
+
+- **文本层 PDF**：使用 PyMuPDF 抽正文，保留页码标记 `<!-- page: n -->`。
+- **表格层 PDF**：由 `pdf2md` 工具使用表格抽取方法生成 `headers`、`rows`、`markdown`、`csv`，从已有 artifact 看 `extraction_method` 多为 `pdfplumber`。
+- **表格与原文分开存储**：避免表格被普通段落 chunk 打散。
+- **页码和来源保留**：每个表格 JSON 都有 `source_pdf_name`、`page_num`、`table_id`。
+- **导入时独立 chunk**：表格作为完整 Markdown 表进入检索，而不是混在正文段落里。
+- **财务事实二次结构化**：核心财务指标额外进入 `table_facts.json`，方便精确数值问答。
+
+**一句话总结**
+PDF 表格识别发生在 `pdf2md` 抽取阶段：它把 PDF 里的表格识别成 `rows/headers`，再渲染成 Markdown，保存为每张表一个 JSON/CSV。FinRAG 后端导入时不再重新识别 PDF 表格，而是读取这些 JSON 的 `markdown` 字段，把完整表格作为独立 chunk，并进一步从财务表里抽取 `table_facts` 用于精确检索和回答。
+
+# 我想知道的是程序是如何从PDF的文本层当中识别出哪些部分是表格的，而就是如何把它们准确的变成markdown格式的表格文档，及是否去进行manifest，把里面的关键信息抽取出来，形成一个类似于原始表格重要信息的摘要？
+
+你问得很准确：**这个项目不是从 PyMuPDF 抽出来的纯文本里再猜哪些段落是表格**，而是分两条管线并行处理 PDF：
+
+- **正文文本层**：用 `PyMuPDF` 抽普通文本，生成 `.md` 正文。
+- **表格结构层**：用 `pdfplumber` 直接在 PDF 页面上识别表格区域，抽成二维数组，再转 Markdown/CSV/JSON。
+
+所以它不是“从一大段文本中识别表格”，而是“从 PDF 页面对象中用表格检测算法抽表格”。
+
+**1. 表格识别在哪里发生**
+核心代码在：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:46`
+
+流程是：
+
+- `import pdfplumber`
+- `pdfplumber.open(pdf_path)` 打开 PDF
+- 遍历每一页：`for page_number, page in enumerate(document.pages, start=1)`
+- 调用：`page.extract_tables()`
+- 对每个 `raw_table` 做清洗、拆表头、转 Markdown、保存为 `ExtractedTable`
+
+关键代码位置：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:54`
+
+这里的：
+
+```python
+page.extract_tables()
+```
+
+就是表格识别的核心。它不是简单看文本换行，而是 `pdfplumber` 根据 PDF 页面中文字位置、线条、单元格边界等信息推断表格结构。
+
+**2. 表格如何标准化**
+识别出来的 `raw_table` 不是直接保存，而是先标准化：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:129`
+
+它做几件事：
+
+- 把 `None` 单元格转成空字符串。
+- 把单元格里的换行、连续空白压成普通空格。
+- 补齐每一行的列数。
+- 删除全空行。
+- 删除全空列。
+- 如果表为空，就跳过。
+
+也就是说，PDF 表格识别出来后，会先被清理成规整的二维数组：
+
+```python
+[
+  ["指标", "2024年", "2023年"],
+  ["营业收入", "362,012,554", "400,917,045"]
+]
+```
+
+**3. 表头如何确定**
+表头逻辑在：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:145`
+
+当前实现很简单：
+
+- 第一行作为 `headers`
+- 后续行作为 `rows`
+- 如果只有一行，没有正文行，就给空表头补 `Column 1`、`Column 2`
+
+所以这里不是复杂的多级表头识别。像你看到的 `Column 2`，就是因为原始 PDF 抽出来的某些表头为空，系统自动补了列名。
+
+**4. Markdown 表格如何生成**
+Markdown 渲染在：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:152`
+
+逻辑是：
+
+- 第一行生成 Markdown 表头：
+
+```markdown
+| 指标 | 2024年 | 2023年 |
+```
+
+- 第二行生成分隔符：
+
+```markdown
+| --- | --- | --- |
+```
+
+- 后续每个 row 生成一行。
+- 如果单元格里有 `|`，会转义成 `\|`，避免破坏 Markdown 表格。
+
+所以你看到 JSON 里的：
+
+```json
+"markdown": "| 评级定义 | Column 2 |\n| --- | --- |\n..."
+```
+
+就是 `_markdown_table(headers, rows)` 生成的。
+
+**5. JSON 和 CSV 如何保存**
+保存逻辑在：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:84`
+
+每张表会写两个文件：
+
+- `tbl-xxx.json`
+- `tbl-xxx.csv`
+
+JSON 里保存完整结构：
+
+- `table_id`
+- `source_pdf_name`
+- `source_pdf_path`
+- `page_num`
+- `table_index`
+- `title`
+- `headers`
+- `rows`
+- `markdown`
+- `row_count`
+- `column_count`
+- `extraction_method`
+- `json_path`
+- `csv_path`
+
+CSV 则用 `headers + rows` 写出，方便人工检查或 Excel 打开。
+
+**6. table_id 怎么生成**
+表格 ID 生成在：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:177`
+
+格式是：
+
+```text
+tbl-<pdf路径hash前12位>-p<页码>-t<页内表格序号>
+```
+
+例如：
+
+```text
+tbl-e348d6047ad6-p0005-t01
+```
+
+含义是：
+
+- `e348d6047ad6`：PDF 路径 hash
+- `p0005`：第 5 页
+- `t01`：该页第 1 张表
+
+**7. manifest 是否生成**
+是的，会生成表格 manifest。
+
+代码在：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:98`
+
+输出路径由这里决定：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:124`
+
+生成：
+
+- `backend/app/data/raw/_meta/finrag-user-source-40-table-manifest.json`
+- `backend/app/data/raw/_meta/finrag-user-source-40-table-manifest.md`
+
+manifest 的 JSON 结构大概是：
+
+```json
+{
+  "collection_name": "...",
+  "raw_root": "...",
+  "table_count": 4128,
+  "source_count": 40,
+  "sources": [...],
+  "tables": [...]
+}
+```
+
+其中：
+
+- `sources` 是每个 PDF 的表格抽取摘要：成功/失败、表格数量、错误信息。
+- `tables` 是每一张表的完整元数据和内容，包括 `markdown`、`headers`、`rows`、`json_path`、`csv_path`。
+
+Markdown 版 manifest 渲染在：
+
+`pdf2md/src/elite_daily_pdf_to_md/tables.py:187`
+
+它主要是一个可读索引表，列出：
+
+- Table ID
+- Source file
+- Page
+- Rows
+- Columns
+- JSON path
+- CSV path
+
+**8. 是否会抽取“原始表格重要信息摘要”**
+这里要分两层说。
+
+第一层，`pdf2md` 的 table manifest **不是语义摘要**，它是“表格清单/索引”。它记录：
+
+- 哪个 PDF
+- 哪一页
+- 第几张表
+- 行数列数
+- JSON/CSV 路径
+- 表格完整 Markdown/rows
+
+它不理解“营业收入”“净利润”这些财务含义。
+
+第二层，FinRAG 后端会从表格里抽取关键财务事实，生成类似“重要信息摘要”的结构化数据。代码在：
+
+`backend/app/core/ingestion/table_facts.py:79`
+
+它会：
+
+- 判断这是不是金融表。
+- 找指标名，比如 revenue、net income、gross margin 等。
+- 找数字单元格。
+- 根据表头推断期间，比如 `2024年`、`2023年`。
+- 写入 `backend/app/data/processed/table_facts.json:1`。
+
+生成的事实类似：
+
+```json
+{
+  "metric": "revenue",
+  "metric_label": "营业收入（千元）",
+  "period_label": "2024年",
+  "raw_value": "362,012,554",
+  "value": 362012554,
+  "page_num": 9,
+  "table_json_path": "..."
+}
+```
+
+所以真正的“关键信息摘要”更接近 `table_facts.json`，而不是 table manifest。
+
+**9. 完整链路总结**
+完整过程是：
+
+```text
+PDF
+ ├─ PyMuPDF 抽正文
+ │   └─ backend/app/data/raw/extracted/<collection>/*.md
+ │
+ └─ pdfplumber 抽表格
+     ├─ page.extract_tables()
+     ├─ normalize rows/cells
+     ├─ 第一行作为 headers
+     ├─ rows 转 Markdown
+     ├─ 每张表保存 JSON + CSV
+     └─ 生成 table manifest
+
+FinRAG import
+ ├─ 读取正文 Markdown
+ ├─ 读取 table_artifact_dir 下的表格 JSON
+ ├─ 把完整 markdown 表格作为 table chunk
+ └─ 从金融表格中抽取 table_facts
+```
+
+**关键判断**
+- 表格识别：`pdfplumber` 的 `page.extract_tables()`。
+- Markdown 转换：项目自己的 `_markdown_table(...)`。
+- 表格索引：`write_table_manifests(...)`。
+- 财务事实摘要：FinRAG 的 `extract_table_facts(...)`。
+- 不是从 `.md` 文本里识别表格，而是从 PDF 页面结构中单独抽表格。
