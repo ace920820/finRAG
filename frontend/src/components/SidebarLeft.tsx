@@ -9,17 +9,17 @@ const EXAMPLES = [
   {
     label: '事实型',
     color: 'blue',
-    question: '英伟达 FY2026Q3 最近一个季度总营收是多少？数据中心业务贡献多少？',
+    question: '宁德时代 2024 年营业收入是多少？同比变化如何？',
   },
   {
     label: '分析型',
     color: 'orange',
-    question: '宁德时代和贵州茅台近期经营表现分别有哪些值得关注的风险和亮点？',
+    question: '根据交银国际研报，宁德时代 2026 年一季度业绩为什么被认为“超预期且盈利有韧性”？',
   },
   {
-    label: '推理型',
-    color: 'purple',
-    question: '结合台积电先进制程与英伟达数据中心需求，AI 算力链条对两家公司业绩可能产生什么影响？',
+    label: '综合总结型',
+    color: 'green',
+    question: '结合宁德时代 2024 年年报和 2026 年交银国际研报，概括公司增长驱动和需要关注的压力。',
   },
 ];
 
@@ -27,6 +27,7 @@ const COLOR_CLASSES: Record<string, { border: string; badge: string }> = {
   blue: { border: 'hover:border-blue-300', badge: 'bg-blue-100 text-blue-700' },
   orange: { border: 'hover:border-orange-300', badge: 'bg-orange-100 text-orange-700' },
   purple: { border: 'hover:border-purple-300', badge: 'bg-purple-100 text-purple-700' },
+  green: { border: 'hover:border-emerald-300', badge: 'bg-emerald-100 text-emerald-700' },
 };
 
 export function SidebarLeft({ documents, onSelectExample }: SidebarLeftProps) {
