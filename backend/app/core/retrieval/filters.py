@@ -36,9 +36,9 @@ def build_metadata_filters(plan: Optional[RetrievalPlan]) -> dict[str, object]:
     if plan.retrieval_strategy == "table_fact_first":
         filters["chunk_type"] = ["table_fact", "table_row", "table"]
     elif plan.retrieval_strategy == "financial_report_first":
-        filters["chunk_type"] = ["table", "table_row", "table_fact", "text"]
+        filters["chunk_type"] = ["section", "table", "table_row", "table_fact", "text"]
     elif plan.retrieval_strategy == "research_report_analysis":
-        filters["chunk_type"] = ["text", "table", "table_row", "table_fact"]
+        filters["chunk_type"] = ["section", "text", "table", "table_row", "table_fact"]
     return filters
 
 

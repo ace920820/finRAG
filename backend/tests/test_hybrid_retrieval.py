@@ -1,10 +1,11 @@
 from app.core.ingestion.fixture_loader import load_chunks
 from app.core.agent.query_analysis import analyze_query
 from app.core.providers.embeddings import MockEmbeddingProvider
-from app.core.retrieval.bm25_store import BM25Result
+from app.core.retrieval.bm25_store import BM25Result, BM25Store
 from app.core.retrieval.hybrid import HybridRetriever
 from app.core.retrieval.rerank_service import RerankService
 from app.core.retrieval.vector_store import VectorStore
+from app.models.schemas import Chunk, QueryEntity, RetrievalPlan
 
 
 class EmptyVectorStore(VectorStore):
@@ -20,6 +21,18 @@ class EmptyBM25Store:
 
     def search(self, query: str, top_k: int = 20):
         return []
+
+
+def _plan(strategy='research_report_analysis', company='宁德时代', aliases=None):
+    return RetrievalPlan(
+        original_query=f'{company}经营风险',
+        normalized_query=f'{company}经营风险',
+        intent='analytical',
+        task_type='risk_analysis',
+        entities=[QueryEntity(canonical=company, aliases=aliases or [], match=company)],
+        preferred_doc_types=['financial_report'] if strategy == 'financial_report_first' else ['research_report'],
+        retrieval_strategy=strategy,
+    )
 
 
 def test_hybrid_retrieval_returns_separate_stage_outputs():
@@ -74,6 +87,94 @@ def test_query_plan_routes_financial_report_first_for_company_filing_lookup():
     assert result.route == 'financial_report_first'
     assert result.route_reason
     assert result.fused_top20
+
+
+def test_hierarchy_drill_down_expands_recalled_section_parent():
+    section_parent = Chunk(
+        chunk_id='doc-catl-s0000-risk',
+        doc_id='doc-catl',
+        section='经营风险',
+        chunk_index=0,
+        content='Section: 经营风险\n\n原材料价格波动影响盈利能力。',
+        metadata={
+            'chunk_type': 'section',
+            'chunk_level': 'section',
+            'child_ids': ['doc-catl-c0000-risk'],
+            'company': '宁德时代',
+            'doc_type': 'research_report',
+            'date': '2026-05-01',
+            'source': 'CATL report',
+        },
+    )
+    child = Chunk(
+        chunk_id='doc-catl-c0000-risk',
+        doc_id='doc-catl',
+        section='chunk-1',
+        chunk_index=1,
+        content='供应合同条款、上游价格机制和客户需求变化。',
+        metadata={
+            'chunk_type': 'text',
+            'chunk_level': 'paragraph',
+            'parent_id': section_parent.chunk_id,
+            'company': '宁德时代',
+            'doc_type': 'research_report',
+            'date': '2026-05-01',
+            'source': 'CATL report',
+        },
+    )
+    retriever = HybridRetriever(BM25Store.from_chunks([section_parent, child]), EmptyVectorStore())
+
+    result = retriever.retrieve('宁德时代经营风险', top_k=1, plan=_plan())
+
+    stage = next(item for item in result.cascade_trace if item.name == 'hierarchy_drill_down')
+    assert stage.input_count >= 1
+    assert stage.output_count == 1
+    assert stage.metadata['children_per_parent_limit'] == 3
+    assert any(item.chunk_id == child.chunk_id for item in result.fused_top20)
+
+
+def test_hierarchy_drill_down_expands_table_parent_and_dedupes_existing_child():
+    table_parent = Chunk(
+        chunk_id='doc-nvda-t0000-income',
+        doc_id='doc-nvda',
+        section='table:income',
+        chunk_index=0,
+        content='Table: income\nRevenue rows',
+        metadata={
+            'chunk_type': 'table',
+            'chunk_level': 'table',
+            'child_ids': ['doc-nvda-tr0000-margin'],
+            'company': 'NVIDIA',
+            'doc_type': 'financial_report',
+            'date': '2025-11-19',
+            'source': 'NVDA 10Q',
+        },
+    )
+    margin_child = Chunk(
+        chunk_id='doc-nvda-tr0000-margin',
+        doc_id='doc-nvda',
+        section='table:income:row:0',
+        chunk_index=1,
+        content='Table Row Metric: gross_margin\nGross margin improved.',
+        metadata={
+            'chunk_type': 'table_row',
+            'chunk_level': 'table_row',
+            'parent_id': table_parent.chunk_id,
+            'metric': 'gross_margin',
+            'company': 'NVIDIA',
+            'doc_type': 'financial_report',
+            'date': '2025-11-19',
+            'source': 'NVDA 10Q',
+        },
+    )
+    retriever = HybridRetriever(BM25Store.from_chunks([table_parent, margin_child]), EmptyVectorStore())
+
+    result = retriever.retrieve('NVIDIA financial report overview', top_k=1, plan=_plan(strategy='financial_report_first', company='NVIDIA', aliases=['NVDA']))
+
+    stage = next(item for item in result.cascade_trace if item.name == 'hierarchy_drill_down')
+    result_ids = [item.chunk_id for item in result.fused_top20]
+    assert stage.output_count <= 1
+    assert result_ids.count(margin_child.chunk_id) == 1
 
 
 def test_metadata_filters_relax_when_too_narrow(monkeypatch):

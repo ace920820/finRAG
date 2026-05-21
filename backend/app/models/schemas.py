@@ -24,6 +24,7 @@ RetrievalCascadeStageName = Literal[
     "query_plan",
     "metadata_filter",
     "coarse_recall",
+    "hierarchy_drill_down",
     "fusion",
     "rerank",
     "final_evidence",

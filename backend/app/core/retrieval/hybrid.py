@@ -146,6 +146,28 @@ class HybridRetriever:
                 ),
             ]
         )
+        if self._hierarchy_drill_down_enabled(plan):
+            drill_down_input_count = len(bm25_hits) + len(vector_hits) + len(supplemental_hits)
+            drill_down_hits = self._hierarchy_drill_down_hits(
+                list(bm25_hits) + list(vector_hits) + list(supplemental_hits),
+                existing_ids={hit.chunk_id for hit in list(bm25_hits) + list(vector_hits) + list(supplemental_hits)},
+                plan=plan,
+            )
+            if drill_down_hits:
+                supplemental_hits.extend(drill_down_hits)
+                filtered_candidate_count += len(drill_down_hits)
+            cascade_trace.append(
+                RetrievalCascadeStage(
+                    name="hierarchy_drill_down",
+                    method="parent_child_metadata",
+                    input_count=drill_down_input_count,
+                    output_count=len(drill_down_hits),
+                    metadata={
+                        "children_per_parent_limit": 3,
+                        "total_child_limit": 8,
+                    },
+                )
+            )
         fused_hits = self._rrf_fuse(query, bm25_hits, vector_hits, supplemental_hits, top_k=limit)
         cascade_trace.append(
             RetrievalCascadeStage(
@@ -171,6 +193,52 @@ class HybridRetriever:
             filter_fallback_reason=filter_fallback_reason,
             cascade_trace=cascade_trace,
         )
+
+    def _hierarchy_drill_down_hits(self, parent_hits: Sequence[object], existing_ids: set[str], plan: Optional[RetrievalPlan]) -> List[BM25Result]:
+        if not self._hierarchy_drill_down_enabled(plan):
+            return []
+        children_by_parent: Dict[str, List[object]] = {}
+        for chunk in self.bm25_store.chunks:
+            parent_id = chunk.metadata.get("parent_id")
+            if parent_id:
+                children_by_parent.setdefault(str(parent_id), []).append(chunk)
+        if not children_by_parent:
+            return []
+
+        results: List[BM25Result] = []
+        seen = set(existing_ids)
+        parent_ids: list[str] = []
+        for hit in parent_hits:
+            metadata = getattr(hit, "metadata", {}) or {}
+            if metadata.get("chunk_type") not in {"section", "table"}:
+                continue
+            parent_id = str(getattr(hit, "chunk_id", ""))
+            if parent_id and parent_id not in parent_ids:
+                parent_ids.append(parent_id)
+
+        for parent_id in parent_ids:
+            for child in children_by_parent.get(parent_id, [])[:3]:
+                if child.chunk_id in seen:
+                    continue
+                results.append(BM25Store._to_result(child, 0.12))
+                seen.add(child.chunk_id)
+                if len(results) >= 8:
+                    return results
+        return results
+
+    @staticmethod
+    def _hierarchy_drill_down_enabled(plan: Optional[RetrievalPlan]) -> bool:
+        if plan is None:
+            return False
+        if plan.retrieval_strategy in {"financial_report_first", "research_report_analysis"}:
+            return True
+        return plan.intent in {"analytical", "reasoning"} and plan.task_type in {
+            "causal_analysis",
+            "risk_analysis",
+            "trend_analysis",
+            "comparison",
+            "general_analysis",
+        }
 
     def _rrf_fuse(
         self,
