@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Advanced RAG Retrieval Architecture
 status: planning
-last_updated: "2026-05-21T08:47:51Z"
-last_activity: 2026-05-21 -- Inserted Phase 21.1 frontend RAG process showcase before Phase 22
+last_updated: "2026-05-21T09:05:00Z"
+last_activity: 2026-05-21 -- Planned Phase 22 hierarchical chunking and drill-down retrieval before returning to Phase 21.1
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 6
+  total_plans: 7
   completed_plans: 4
   percent: 57
 ---
@@ -17,14 +17,14 @@ progress:
 
 **Initialized:** 2026-05-13
 **Current milestone:** v1.4 Advanced RAG Retrieval Architecture
-**Status:** Planning Phase 21.1
+**Status:** Phase 22 ready to execute
 
 ## Current Position
 
-Phase: 21.1 (Frontend RAG Process Showcase For v1.4 Demo) — READY TO PLAN
-Plan: 0 of 0
-Status: Phase 21 complete; urgent inserted showcase phase ready to plan before Phase 22
-Last activity: 2026-05-21 -- Inserted Phase 21.1 frontend RAG process showcase before Phase 22
+Phase: 22 (Hierarchical Chunking And Drill-down Retrieval) — READY TO EXECUTE
+Plan: 1 of 1 planned
+Status: Phase 22 planned and verified; Phase 21.1 frontend showcase remains deferred until Phase 22 is done
+Last activity: 2026-05-21 -- Planned Phase 22 hierarchical chunking and drill-down retrieval before returning to Phase 21.1
 
 ## Completed Milestones
 
@@ -50,12 +50,13 @@ Last activity: 2026-05-21 -- Inserted Phase 21.1 frontend RAG process showcase b
 
 ## Next Action
 
-Plan Phase 21.1 — Frontend RAG Process Showcase For v1.4 Demo.
+Execute Phase 22 — Hierarchical Chunking And Drill-down Retrieval.
 
 ## Quick Tasks Completed
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-21 | phase-22-plan | Planned hierarchical chunking and drill-down retrieval | Added research, validation, and a verified execution plan for retrievable section/table parent chunks, bounded child drill-down, and deterministic import/reindex compatibility. |
 | 2026-05-21 | phase-21.1-insert | Inserted frontend RAG process showcase phase before Phase 22 | Added a demo-focused phase for exposing v1.4 RAG intermediate artifacts in the frontend before hierarchy/drill-down work. |
 | 2026-05-21 | phase-21-iterative-retrieval | Completed Phase 21 iterative retrieval demo mode | Added deterministic multi-step retrieval for analytical/reasoning queries, additive iterative traces, single-pass fallback for factual/table QA, and verified 111 backend tests. |
 | 2026-05-21 | 260521-meg | Fix Phase 19/20 code review findings for retrieval plan propagation, evidence packing, and cascade trace | Passed plan through workflow retrieval, made evidence packing robust to missing citation ids, aligned cascade trace order, added evidence compression trace counts, and verified 102 backend tests. |

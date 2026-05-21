@@ -21,7 +21,7 @@ created: 2026-05-21
 | **Config file** | none under `backend` |
 | **Quick run command** | `cd backend && python3 -m pytest tests/test_corpus_import.py tests/test_hybrid_retrieval.py -q` |
 | **Full suite command** | `cd backend && python3 -m pytest -q` |
-| **Estimated runtime** | ~60 seconds |
+| **Estimated runtime** | ~30 seconds for focused checks; full suite reserved for phase gate |
 
 ---
 
@@ -30,7 +30,7 @@ created: 2026-05-21
 - **After every task commit:** Run `cd backend && python3 -m pytest tests/test_corpus_import.py tests/test_hybrid_retrieval.py -q`
 - **After every plan wave:** Run `cd backend && python3 -m pytest tests/test_corpus_import.py tests/test_import_pipeline_integration.py tests/test_hybrid_retrieval.py tests/test_query_api.py tests/test_kb_api.py -q`
 - **Before `/gsd-verify-work`:** Full suite must be green
-- **Max feedback latency:** 90 seconds
+- **Max feedback latency:** 30 seconds for focused per-task checks
 
 ---
 
@@ -68,7 +68,7 @@ All phase behaviors have automated verification.
 - [x] Sampling continuity: no 3 consecutive tasks without automated verify.
 - [x] Wave 0 covers all missing references.
 - [x] No watch-mode flags.
-- [x] Feedback latency < 90s.
+- [x] Feedback latency < 30s for focused per-task checks.
 - [x] `nyquist_compliant: true` set in frontmatter.
 
 **Approval:** approved 2026-05-21
