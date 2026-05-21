@@ -1,20 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import clsx from 'clsx';
-import { Document } from '../types';
+import { Document, RetrievalSnapshot } from '../types';
+import { RagProcessInspector } from './RagProcessInspector';
 
 interface SidebarRightProps {
-  bm25Docs: Document[];
-  vectorDocs: Document[];
-  rerankDocs: Document[];
-  bm25Error?: string | null;
-  vectorError?: string | null;
+  snapshot: RetrievalSnapshot;
   activeCitationId: string | null;
   activeSnapshotLabel?: string;
 }
 
 type PanelKey = 'bm25' | 'vector' | 'rerank';
 
-export function SidebarRight({ bm25Docs, vectorDocs, rerankDocs, activeCitationId, activeSnapshotLabel, bm25Error, vectorError }: SidebarRightProps) {
+export function SidebarRight({ snapshot, activeCitationId, activeSnapshotLabel }: SidebarRightProps) {
+  const { bm25Docs, vectorDocs, rerankDocs, bm25Error, vectorError } = snapshot;
   const [openPanels, setOpenPanels] = useState<Record<PanelKey, boolean>>({
     bm25: false,
     vector: false,
@@ -44,6 +42,8 @@ export function SidebarRight({ bm25Docs, vectorDocs, rerankDocs, activeCitationI
         <span className="text-blue-600">LIVE</span>
       </div>
       <div className="p-3 space-y-4">
+        <RagProcessInspector snapshot={snapshot} />
+
         <RetrievalPanel title="BM25 关键词召回 (Top 10)" open={openPanels.bm25} onToggle={() => togglePanel('bm25')} tone="neutral">
           {bm25Error ? <ErrorPanel text={bm25Error} /> : bm25Docs.length ? bm25Docs.map(doc => (
             <DocItem key={doc.id} doc={doc} isActive={isDocActive(doc)} maxScore={Math.max(1, ...bm25Docs.map(item => item.score))} type="bm25" />

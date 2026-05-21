@@ -239,13 +239,9 @@ export default function App() {
           previewLoading={previewLoading}
         />
         <SidebarRight 
-          bm25Docs={activeSnapshot.bm25Docs}
-          vectorDocs={activeSnapshot.vectorDocs}
-          rerankDocs={activeSnapshot.rerankDocs}
+          snapshot={activeSnapshot}
           activeCitationId={activeCitationId}
           activeSnapshotLabel={activeSnapshotLabel}
-          bm25Error={activeSnapshot.bm25Error}
-          vectorError={activeSnapshot.vectorError}
         />
       </main>
     </div>
