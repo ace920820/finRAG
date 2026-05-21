@@ -29,7 +29,7 @@ Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanc
 
 ## Phase Details
 
-### Phase 17 — Structured Query Understanding And Retrieval Plan
+### Phase 17: Structured Query Understanding And Retrieval Plan
 
 **Purpose:** Convert query analysis from simple expansion into a structured planning layer that downstream retrieval can consume.
 
@@ -47,7 +47,7 @@ Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanc
 - Tests cover NVIDIA revenue lookup, Moutai/CATL analytical questions, and at least one reasoning query.
 - The plan is simple and rule-based enough to stay deterministic under mock tests.
 
-### Phase 18 — Knowledge Routing And Metadata Pre-filtering
+### Phase 18: Knowledge Routing And Metadata Pre-filtering
 
 **Purpose:** Avoid searching the full corpus when the query plan can narrow the search space first.
 
@@ -67,7 +67,7 @@ Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanc
 - Debug/retrieval outputs show route choice, filters, candidate counts before/after filtering, and fallback reasons when filters are too narrow.
 - Existing table-aware numeric QA and general text RAG behavior remain green.
 
-### Phase 19 — Multi-stage Retrieval Cascade Trace
+### Phase 19: Multi-stage Retrieval Cascade Trace
 
 **Purpose:** Turn retrieval into an inspectable cascade rather than a single fused top-k list.
 
@@ -87,7 +87,7 @@ Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanc
 - SSE and debug retrieval expose stage traces without breaking existing frontend consumers.
 - Tests verify deterministic cascade traces for factual, analytical, and table-fact queries.
 
-### Phase 20 — Evidence Compression And Context Builder
+### Phase 20: Evidence Compression And Context Builder
 
 **Purpose:** Reduce context pollution by feeding generation a compact, source-grounded evidence pack.
 
@@ -105,7 +105,7 @@ Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanc
 - Table facts preserve value, unit, currency, period, page, and source without lossy summarization.
 - Existing citation metadata remains accurate in `done` events.
 
-### Phase 21 — Agentic Iterative Retrieval Demo Mode
+### Phase 21: Agentic Iterative Retrieval Demo Mode
 
 **Purpose:** Demonstrate retrieval as a reasoning process for complex financial analysis questions.
 
@@ -123,7 +123,7 @@ Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanc
 - Iterative retrieval falls back gracefully when planning or evidence collection fails.
 - SSE/debug traces expose iterative steps for demo explanation without requiring frontend redesign.
 
-### Phase 22 — Hierarchical Chunking And Drill-down Retrieval
+### Phase 22: Hierarchical Chunking And Drill-down Retrieval
 
 **Purpose:** Add multi-scale retrieval after the safer architecture layers are in place.
 
