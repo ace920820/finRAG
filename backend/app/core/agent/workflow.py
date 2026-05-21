@@ -168,6 +168,10 @@ def _retrieve_candidates(query: str, rewrite: QueryRewriteEvent, retriever):
     try:
         step_candidates: list[RetrievalResultItem] = []
         executed_steps: list[IterativeRetrievalStep] = []
+        # 同步记录每一步实际产出的 fused_top20 长度。selected_evidence_ids 是给 UI
+        # 展示的样本（截断到前 5），不能用来反映真实的合并基数；下方 per_step_metadata
+        # 必须用这个真实数，否则 "step 各 5 → 合并 22" 会出现明显矛盾。
+        step_raw_counts: list[int] = []
         for step in iterative_trace.steps:
             step_result = _retrieve_single(retriever, step.retrieval_query, rewrite.plan)
             evidence = _selected_evidence(step_result.fused_top20)
@@ -183,6 +187,7 @@ def _retrieve_candidates(query: str, rewrite: QueryRewriteEvent, retriever):
                 )
             )
             step_candidates.extend(step_result.fused_top20)
+            step_raw_counts.append(len(step_result.fused_top20))
         candidates = _dedupe_candidates(step_candidates)
         if not candidates:
             iterative_trace = iterative_trace.model_copy(
@@ -196,9 +201,10 @@ def _retrieve_candidates(query: str, rewrite: QueryRewriteEvent, retriever):
             {
                 "index": step.index,
                 "purpose": step.purpose,
-                "candidates": len(step.selected_evidence_ids),
+                "candidates": raw_count,
+                "evidence_sample_size": len(step.selected_evidence_ids),
             }
-            for step in executed_steps
+            for step, raw_count in zip(executed_steps, step_raw_counts)
         ]
         single_pass.cascade_trace.append(
             RetrievalCascadeStage(
