@@ -46,10 +46,10 @@ Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanced fin
 
 ### Frontend RAG Process Showcase
 
-- [ ] **SHOWCASE-01**: The chat UI exposes the v1.4 query understanding output, including intent, task type, entities, metrics, time range, retrieval strategy, query expansion, and sub-queries.
-- [ ] **SHOWCASE-02**: The retrieval visualization shows route choice, metadata filters, cascade stages, input/output counts, degradation/fallback metadata, and candidate evidence in a way suitable for interview demonstration.
-- [ ] **SHOWCASE-03**: Analytical/reasoning queries show iterative retrieval steps with purpose, generated retrieval query, route/filter metadata, and selected evidence summaries.
-- [ ] **SHOWCASE-04**: The frontend preserves the existing chat/citation workflow while adding demo-oriented controls or panels for inspecting intermediate RAG artifacts without requiring production-style UX simplification.
+- [x] **SHOWCASE-01**: The chat UI exposes the v1.4 query understanding output, including intent, task type, entities, metrics, time range, retrieval strategy, query expansion, and sub-queries.
+- [x] **SHOWCASE-02**: The retrieval visualization shows route choice, metadata filters, cascade stages, input/output counts, degradation/fallback metadata, and candidate evidence in a way suitable for interview demonstration.
+- [x] **SHOWCASE-03**: Analytical/reasoning queries show iterative retrieval steps with purpose, generated retrieval query, route/filter metadata, and selected evidence summaries.
+- [x] **SHOWCASE-04**: The frontend preserves the existing chat/citation workflow while adding demo-oriented controls or panels for inspecting intermediate RAG artifacts without requiring production-style UX simplification.
 
 ### Hierarchical Chunking
 
@@ -107,14 +107,14 @@ Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanced fin
 | ITER-02 | Phase 21 | Pending |
 | ITER-03 | Phase 21 | Pending |
 | ITER-04 | Phase 21 | Pending |
-| SHOWCASE-01 | Phase 21.1 | Pending |
-| SHOWCASE-02 | Phase 21.1 | Pending |
-| SHOWCASE-03 | Phase 21.1 | Pending |
-| SHOWCASE-04 | Phase 21.1 | Pending |
-| HIER-01 | Phase 22 | Pending |
-| HIER-02 | Phase 22 | Pending |
-| HIER-03 | Phase 22 | Pending |
-| HIER-04 | Phase 22 | Pending |
+| SHOWCASE-01 | Phase 21.1 | Complete |
+| SHOWCASE-02 | Phase 21.1 | Complete |
+| SHOWCASE-03 | Phase 21.1 | Complete |
+| SHOWCASE-04 | Phase 21.1 | Complete |
+| HIER-01 | Phase 22 | Complete |
+| HIER-02 | Phase 22 | Complete |
+| HIER-03 | Phase 22 | Complete |
+| HIER-04 | Phase 22 | Complete |
 
 **Coverage:**
 - v1.4 requirements: 27 total

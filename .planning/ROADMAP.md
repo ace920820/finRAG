@@ -1,7 +1,7 @@
 # Roadmap: FinRAG v1.4 Advanced RAG Retrieval Architecture
 
 **Last updated:** 2026-05-21  
-**Current status:** v1.4 initialized; ready to plan Phase 17.
+**Current status:** v1.4 implementation complete through Phase 22; ready for demo validation.
 
 ## Shipped Milestones
 
@@ -155,7 +155,7 @@ Plans:
 - The design is demo-oriented and information-rich rather than production-minimal; it should make intermediate processing legible during a walkthrough.
 
 Plans:
-- [ ] 21.1-01-PLAN.md — Add frontend RAG process inspector for Phase 17-22 traces, including hierarchy/drill-down display.
+- [x] 21.1-01-PLAN.md — Add frontend RAG process inspector for Phase 17-22 traces, including hierarchy/drill-down display.
 
 ### Phase 22: Hierarchical Chunking And Drill-down Retrieval
 
@@ -206,10 +206,10 @@ Plans:
 | ITER-02 | Phase 21 | Pending |
 | ITER-03 | Phase 21 | Pending |
 | ITER-04 | Phase 21 | Pending |
-| SHOWCASE-01 | Phase 21.1 | Pending |
-| SHOWCASE-02 | Phase 21.1 | Pending |
-| SHOWCASE-03 | Phase 21.1 | Pending |
-| SHOWCASE-04 | Phase 21.1 | Pending |
+| SHOWCASE-01 | Phase 21.1 | Complete |
+| SHOWCASE-02 | Phase 21.1 | Complete |
+| SHOWCASE-03 | Phase 21.1 | Complete |
+| SHOWCASE-04 | Phase 21.1 | Complete |
 | HIER-01 | Phase 22 | Complete |
 | HIER-02 | Phase 22 | Complete |
 | HIER-03 | Phase 22 | Complete |
@@ -219,4 +219,4 @@ Plans:
 
 ## Next Action
 
-Execute Phase 21.1 frontend showcase, using Phase 22 hierarchy metadata and drill-down trace in the demo UI.
+Run live demo validation for Phase 17-22 features. If previously indexed documents do not expose Phase 22 hierarchy metadata, perform a controlled corpus reimport/reindex before the walkthrough.
