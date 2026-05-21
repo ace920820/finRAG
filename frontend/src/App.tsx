@@ -66,10 +66,25 @@ export default function App() {
     try {
       await streamQuery(query, {
         onQueryRewrite: payload => {
-          updateAssistant(assistantMsgId, {
+          const queryTerms = [...payload.expanded, ...payload.sub_queries].filter(Boolean);
+          updateAssistant(assistantMsgId, message => ({
             stage: 'query',
-            queryRewrite: [...payload.expanded, ...payload.sub_queries].filter(Boolean),
-          });
+            queryRewrite: queryTerms,
+            retrievalSnapshot: {
+              ...(message.retrievalSnapshot ?? emptySnapshot()),
+              queryPlan: payload.plan ?? null,
+              expandedTerms: payload.expanded,
+              subQueries: payload.sub_queries,
+            },
+          }));
+        },
+        onIntentDetected: payload => {
+          updateAssistant(assistantMsgId, message => ({
+            retrievalSnapshot: {
+              ...(message.retrievalSnapshot ?? emptySnapshot()),
+              intent: payload,
+            },
+          }));
         },
         onRetrievalComplete: payload => {
           const bm25Docs = mapRetrievalResults(payload.bm25_results);
@@ -82,6 +97,8 @@ export default function App() {
               vectorDocs,
               bm25Error: payload.bm25_error ?? null,
               vectorError: payload.vector_error ?? null,
+              retrievalCascade: payload.cascade_trace ?? [],
+              iterativeTrace: payload.iterative_trace ?? null,
             },
           }));
         },
@@ -92,6 +109,7 @@ export default function App() {
             retrievalSnapshot: {
               ...(message.retrievalSnapshot ?? emptySnapshot()),
               rerankDocs,
+              rerankCascade: payload.cascade_trace ?? [],
             },
           }));
         },
@@ -235,11 +253,29 @@ export default function App() {
 }
 
 function emptySnapshot(): RetrievalSnapshot {
-  return { bm25Docs: [], vectorDocs: [], rerankDocs: [], bm25Error: null, vectorError: null };
+  return {
+    bm25Docs: [],
+    vectorDocs: [],
+    rerankDocs: [],
+    bm25Error: null,
+    vectorError: null,
+    retrievalCascade: [],
+    rerankCascade: [],
+    iterativeTrace: null,
+  };
 }
 
 function defaultSnapshot(): RetrievalSnapshot {
-  return { bm25Docs: mockBM25Docs, vectorDocs: mockVectorDocs, rerankDocs: mockRerankDocs, bm25Error: null, vectorError: null };
+  return {
+    bm25Docs: mockBM25Docs,
+    vectorDocs: mockVectorDocs,
+    rerankDocs: mockRerankDocs,
+    bm25Error: null,
+    vectorError: null,
+    retrievalCascade: [],
+    rerankCascade: [],
+    iterativeTrace: null,
+  };
 }
 
 function mockLibraryDocuments(): LibraryDocument[] {

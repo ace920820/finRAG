@@ -1,3 +1,5 @@
+import { IntentDetectedPayload, IterativeRetrievalTrace, MetadataRecord, RetrievalCascadeStage, RetrievalPlan } from './api/finrag';
+
 export type MessageStage = 'idle' | 'query' | 'retrieve' | 'rerank' | 'generate' | 'done';
 
 export type DocType = '财报' | '研报' | '新闻';
@@ -13,6 +15,7 @@ export interface Document {
   fallbackReason?: string;
   contentSnippet?: string;
   fullContent?: string;
+  metadata?: MetadataRecord;
   isHigh?: boolean;
 }
 
@@ -29,6 +32,13 @@ export interface RetrievalSnapshot {
   bm25Docs: Document[];
   vectorDocs: Document[];
   rerankDocs: Document[];
+  queryPlan?: RetrievalPlan | null;
+  expandedTerms?: string[];
+  subQueries?: string[];
+  intent?: IntentDetectedPayload | null;
+  retrievalCascade?: RetrievalCascadeStage[];
+  rerankCascade?: RetrievalCascadeStage[];
+  iterativeTrace?: IterativeRetrievalTrace | null;
   bm25Error?: string | null;
   vectorError?: string | null;
   citations?: Record<string, unknown>;

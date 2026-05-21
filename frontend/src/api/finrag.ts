@@ -2,6 +2,12 @@ import { Document, DocType, LibraryDocument } from '../types';
 
 export type BackendDocType = 'financial_report' | 'research_report' | 'news';
 export type QueryIntent = 'factual' | 'analytical' | 'reasoning';
+export type QueryTaskType = 'metric_lookup' | 'causal_analysis' | 'risk_analysis' | 'trend_analysis' | 'comparison' | 'general_analysis';
+export type RetrievalStrategy = 'table_fact_first' | 'financial_report_first' | 'research_report_analysis' | 'general_hybrid';
+export type CascadeStageName = 'query_plan' | 'metadata_filter' | 'coarse_recall' | 'hierarchy_drill_down' | 'fusion' | 'rerank' | 'final_evidence';
+
+export type MetadataValue = string | number | boolean | null | MetadataValue[] | { [key: string]: MetadataValue };
+export type MetadataRecord = Record<string, MetadataValue>;
 
 export interface BackendDocumentListItem {
   doc_id: string;
@@ -27,6 +33,8 @@ export interface BackendRetrievalResultItem {
   page: number | null;
   preview: string;
   score: number;
+  content?: string | null;
+  metadata?: MetadataRecord;
 }
 
 export interface BackendRerankResultItem {
@@ -45,12 +53,78 @@ export interface BackendRerankResultItem {
   page: number | null;
   content: string;
   citation_id: number;
+  metadata?: MetadataRecord;
+}
+
+export interface QueryEntity {
+  canonical: string;
+  aliases: string[];
+  match: string;
+}
+
+export interface QueryMetric {
+  canonical: string;
+  aliases: string[];
+  match: string;
+}
+
+export interface QueryTimeRange {
+  year?: number | null;
+  quarter?: 'q1' | 'q2' | 'q3' | 'q4' | null;
+  fiscal?: boolean;
+  relative?: 'latest' | 'recent' | 'recent_years' | null;
+  raw?: string | null;
+}
+
+export interface RetrievalPlan {
+  original_query: string;
+  normalized_query: string;
+  intent: QueryIntent;
+  task_type: QueryTaskType;
+  entities: QueryEntity[];
+  metrics: QueryMetric[];
+  time_range?: QueryTimeRange | null;
+  preferred_doc_types: BackendDocType[];
+  retrieval_strategy: RetrievalStrategy;
+  filters: MetadataRecord;
+  signals: string[];
+}
+
+export interface RetrievalCascadeStage {
+  name: CascadeStageName;
+  method: string;
+  input_count: number;
+  output_count: number;
+  degraded: boolean;
+  fallback_reason?: string | null;
+  metadata: MetadataRecord;
+}
+
+export interface IterativeRetrievalStep {
+  index: number;
+  purpose: 'background_facts' | 'risk_or_driver_evidence' | 'cross_check';
+  retrieval_query: string;
+  route?: string | null;
+  applied_filters: MetadataRecord;
+  selected_evidence_ids: string[];
+  selected_evidence: MetadataRecord[];
+  cascade_trace: RetrievalCascadeStage[];
+  degraded: boolean;
+  fallback_reason?: string | null;
+}
+
+export interface IterativeRetrievalTrace {
+  enabled: boolean;
+  degraded: boolean;
+  fallback_reason?: string | null;
+  steps: IterativeRetrievalStep[];
 }
 
 export interface QueryRewritePayload {
   original: string;
   expanded: string[];
   sub_queries: string[];
+  plan?: RetrievalPlan | null;
 }
 
 export interface IntentDetectedPayload {
@@ -64,6 +138,15 @@ export interface RetrievalCompletePayload {
   fused_top20: BackendRetrievalResultItem[];
   bm25_error?: string | null;
   vector_error?: string | null;
+  route?: string | null;
+  route_reason?: string | null;
+  applied_filters?: MetadataRecord | null;
+  filter_before_count?: number | null;
+  filter_after_count?: number | null;
+  filters_relaxed?: boolean;
+  filter_fallback_reason?: string | null;
+  cascade_trace?: RetrievalCascadeStage[];
+  iterative_trace?: IterativeRetrievalTrace | null;
 }
 
 export interface RerankCompletePayload {
@@ -71,6 +154,7 @@ export interface RerankCompletePayload {
   degraded: boolean;
   fallback_reason?: string | null;
   score_source: 'rerank' | 'hybrid_fusion' | 'mock';
+  cascade_trace?: RetrievalCascadeStage[];
 }
 
 export interface AnswerChunkPayload {
@@ -87,6 +171,7 @@ export interface CitationMetadata {
   page: number | null;
   source?: string | null;
   section?: string | null;
+  metadata?: MetadataRecord;
 }
 
 export interface DonePayload {
@@ -172,6 +257,7 @@ export function mapRetrievalResults(items: BackendRetrievalResultItem[]): Docume
     type: mapDocType(item.doc_type),
     source: formatSource(item.page, item.date, item.company),
     score: item.score,
+    metadata: item.metadata,
     contentSnippet: item.preview,
     isHigh: index < 2,
   }));
@@ -187,6 +273,7 @@ export function mapRerankResults(items: BackendRerankResultItem[]): Document[] {
     scoreSource: item.score_source,
     degraded: item.degraded,
     fallbackReason: item.fallback_reason ?? undefined,
+    metadata: item.metadata,
     contentSnippet: item.content,
     isHigh: item.rank <= 2,
   }));
