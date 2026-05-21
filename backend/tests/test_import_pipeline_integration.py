@@ -28,6 +28,8 @@ def _write_sample_raw(raw_root):
             "",
             "## Extracted Text",
             "",
+            "# 渠道观察",
+            "",
             "<!-- page: 2 -->",
             "贵州茅台渠道库存稳定，批价表现稳健，营业收入具备韧性。",
         ]),
@@ -101,13 +103,20 @@ def test_imported_corpus_flows_through_loader_api_and_retrieval(tmp_path, client
         documents = load_documents()
         assert documents[0].title == "贵州茅台 渠道跟踪"
         counts = chunk_counts_by_doc_id()
-        assert counts[documents[0].doc_id] == 1
+        assert counts[documents[0].doc_id] == 2
 
         response = client.get("/api/documents")
         assert response.status_code == 200
         payload = response.json()
         assert payload["total"] == 1
         assert payload["documents"][0]["company"] == "贵州茅台"
+        detail = client.get(f"/api/kb/documents/{documents[0].doc_id}")
+        assert detail.status_code == 200
+        chunks = detail.json()["chunks"]
+        section_chunk = next(chunk for chunk in chunks if chunk["metadata"].get("chunk_type") == "section")
+        child_chunk = next(chunk for chunk in chunks if chunk["metadata"].get("parent_id") == section_chunk["chunk_id"])
+        assert section_chunk["metadata"]["child_ids"] == [child_chunk["chunk_id"]]
+        assert section_chunk["metadata"]["section_path"] == ["渠道观察"]
 
         index_dir.mkdir(parents=True, exist_ok=True)
         for stale_index in index_dir.glob("*.json"):

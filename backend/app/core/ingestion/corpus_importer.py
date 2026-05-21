@@ -77,8 +77,13 @@ def build_processed_records(raw_documents: list[RawDocument], defaults: ImportDe
     for raw in raw_documents:
         document = _document_from_raw(raw, defaults)
         documents.append(document)
-        for text_chunk in chunk_text(raw.body, target_chars=target_chars):
+        text_chunks = chunk_text(raw.body, target_chars=target_chars)
+        section_parent_ids = _section_parent_ids(document, text_chunks)
+        section_children: dict[str, list[str]] = {parent_id: [] for parent_id in section_parent_ids.values()}
+        child_chunks: list[Chunk] = []
+        for text_chunk in text_chunks:
             chunk_hash = _hash_text(f"{document.doc_id}:{text_chunk.chunk_index}:{text_chunk.content}")[:12]
+            parent_id = section_parent_ids[text_chunk.section_path]
             metadata = {
                 **raw.frontmatter,
                 "title": document.title,
@@ -89,8 +94,14 @@ def build_processed_records(raw_documents: list[RawDocument], defaults: ImportDe
                 "collection": raw.collection_name or raw.frontmatter.get("collection", "default"),
                 "source_path": str(raw.path),
                 "source_name": raw.source_name,
+                "chunk_type": "text",
+                "chunk_level": "paragraph",
+                "parent_id": parent_id,
+                "section_title": text_chunk.section_title,
+                "section_path": list(text_chunk.section_path),
+                "hierarchy_path": list(text_chunk.section_path) + [text_chunk.section],
             }
-            chunks.append(Chunk(
+            child = Chunk(
                 chunk_id=f"{document.doc_id}-c{text_chunk.chunk_index:04d}-{chunk_hash}",
                 doc_id=document.doc_id,
                 section=text_chunk.section,
@@ -98,11 +109,78 @@ def build_processed_records(raw_documents: list[RawDocument], defaults: ImportDe
                 chunk_index=text_chunk.chunk_index,
                 content=text_chunk.content,
                 metadata=metadata,
-            ))
+            )
+            section_children[parent_id].append(child.chunk_id)
+            child_chunks.append(child)
+        chunks.extend(_section_parent_chunks(raw, document, text_chunks, section_parent_ids, section_children))
+        chunks.extend(child_chunks)
         table_chunks, table_facts = _table_chunks_for_document(raw, document, len(chunks))
         chunks.extend(table_chunks)
         facts.extend(table_facts)
     return documents, chunks, facts
+
+
+def _section_parent_ids(document: Document, text_chunks) -> dict[tuple[str, ...], str]:
+    section_paths: list[tuple[str, ...]] = []
+    for text_chunk in text_chunks:
+        if text_chunk.section_path not in section_paths:
+            section_paths.append(text_chunk.section_path)
+    return {
+        section_path: f"{document.doc_id}-s{index:04d}-{_hash_text('/'.join(section_path))[:12]}"
+        for index, section_path in enumerate(section_paths)
+    }
+
+
+def _section_parent_chunks(
+    raw: RawDocument,
+    document: Document,
+    text_chunks,
+    section_parent_ids: dict[tuple[str, ...], str],
+    section_children: dict[str, list[str]],
+) -> list[Chunk]:
+    parents: list[Chunk] = []
+    for section_path, parent_id in section_parent_ids.items():
+        children = [chunk for chunk in text_chunks if chunk.section_path == section_path]
+        if not children:
+            continue
+        title = section_path[-1] if section_path else "Document"
+        first_page = next((chunk.page_num for chunk in children if chunk.page_num is not None), None)
+        content = _section_summary_content(title, children)
+        metadata = {
+            **raw.frontmatter,
+            "title": document.title,
+            "source": document.source,
+            "company": document.company,
+            "doc_type": document.doc_type,
+            "date": document.date,
+            "collection": raw.collection_name or raw.frontmatter.get("collection", "default"),
+            "source_path": str(raw.path),
+            "source_name": raw.source_name,
+            "chunk_type": "section",
+            "chunk_level": "section",
+            "parent_id": None,
+            "child_ids": section_children.get(parent_id, []),
+            "section_title": title,
+            "section_path": list(section_path),
+            "hierarchy_path": list(section_path),
+        }
+        parents.append(Chunk(
+            chunk_id=parent_id,
+            doc_id=document.doc_id,
+            section=" > ".join(section_path),
+            page_num=first_page,
+            chunk_index=-1,
+            content=content,
+            metadata=metadata,
+        ))
+    return parents
+
+
+def _section_summary_content(title: str, children) -> str:
+    body = "\n\n".join(chunk.content for chunk in children).strip()
+    if len(body) > 700:
+        body = body[:700].rstrip()
+    return f"Section: {title}\n\n{body}".strip()
 
 
 def _table_chunks_for_document(raw: RawDocument, document: Document, start_index: int) -> tuple[list[Chunk], list[dict]]:
@@ -122,8 +200,10 @@ def _table_chunks_for_document(raw: RawDocument, document: Document, start_index
             continue
         chunk_index = start_index + len(table_chunks)
         table_id = str(table.get("table_id") or table_path.stem)
+        table_title = str(table.get("title") or table_id)
         content = _render_table_chunk_content(table)
         chunk_hash = _hash_text(f"{document.doc_id}:{table_id}:{content}")[:12]
+        table_chunk_id = f"{document.doc_id}-t{table_index:04d}-{chunk_hash}"
         metadata = {
             **raw.frontmatter,
             "title": document.title,
@@ -135,29 +215,38 @@ def _table_chunks_for_document(raw: RawDocument, document: Document, start_index
             "source_path": str(raw.path),
             "source_name": raw.source_name,
             "chunk_type": "table",
+            "chunk_level": "table",
+            "parent_id": None,
+            "child_ids": [],
+            "section_title": table_title,
+            "section_path": ["tables", table_title],
+            "hierarchy_path": ["tables", table_title],
             "table_id": table_id,
-            "table_title": str(table.get("title") or ""),
+            "table_title": table_title,
             "table_json_path": str(table_path),
             "table_csv_path": str(table.get("csv_path") or ""),
             "row_count": table.get("row_count", 0),
             "column_count": table.get("column_count", 0),
             "extraction_method": str(table.get("extraction_method") or "pdfplumber"),
         }
-        table_chunks.append(Chunk(
-            chunk_id=f"{document.doc_id}-t{table_index:04d}-{chunk_hash}",
+        table_chunk = Chunk(
+            chunk_id=table_chunk_id,
             doc_id=document.doc_id,
             section=f"table:{table_id}",
             page_num=_safe_int(table.get("page_num")),
             chunk_index=chunk_index,
             content=content,
             metadata=metadata,
-        ))
+        )
         row_chunks = build_table_row_chunks(
             raw_frontmatter=raw.frontmatter,
             document=document,
             table_artifact=artifact,
             start_index=start_index + len(table_chunks),
+            parent_chunk_id=table_chunk_id,
         )
+        table_chunk.metadata["child_ids"] = [chunk.chunk_id for chunk in row_chunks]
+        table_chunks.append(table_chunk)
         table_chunks.extend(row_chunks)
         table_facts.extend(extract_table_facts(raw_frontmatter=raw.frontmatter, document=document, table_artifact=artifact))
     return table_chunks, table_facts

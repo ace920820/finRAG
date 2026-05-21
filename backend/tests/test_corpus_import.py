@@ -114,8 +114,14 @@ def test_import_corpus_writes_schema_compatible_deterministic_json(tmp_path):
             "",
             "## Extracted Text",
             "",
+            "# 经营概览",
+            "",
             "<!-- page: 3 -->",
             "宁德时代动力电池出货增长，经营风险包括原材料价格波动。",
+            "",
+            "## 财务表现",
+            "",
+            "营业收入和盈利能力保持韧性。",
         ]),
         encoding="utf-8",
     )
@@ -143,7 +149,7 @@ def test_import_corpus_writes_schema_compatible_deterministic_json(tmp_path):
     chunks = json.loads(first.chunks_path.read_text(encoding="utf-8"))
 
     assert len(first.documents) == 2
-    assert len(first.chunks) == 2
+    assert len(first.chunks) == 4
     assert first_docs_json == second.documents_path.read_text(encoding="utf-8")
     assert first_chunks_json == second.chunks_path.read_text(encoding="utf-8")
     assert json.loads(first.facts_path.read_text(encoding="utf-8")) == []
@@ -156,6 +162,22 @@ def test_import_corpus_writes_schema_compatible_deterministic_json(tmp_path):
     catl_chunk = next(chunk for chunk in first.chunks if chunk.doc_id == catl.doc_id)
     assert catl_chunk.page_num == 3
     assert catl_chunk.metadata["source_pdf_name"] == "CATL quarterly.pdf"
+    section_chunks = [chunk for chunk in first.chunks if chunk.doc_id == catl.doc_id and chunk.metadata.get("chunk_type") == "section"]
+    assert [chunk.metadata["section_title"] for chunk in section_chunks] == ["财务表现"]
+    finance_parent = section_chunks[0]
+    overview_children = [
+        chunk for chunk in first.chunks
+        if chunk.metadata.get("parent_id") == finance_parent.chunk_id
+    ]
+    assert finance_parent.metadata["chunk_level"] == "section"
+    assert finance_parent.metadata["section_path"] == ["经营概览", "财务表现"]
+    assert finance_parent.metadata["child_ids"] == [child.chunk_id for child in overview_children]
+    assert "宁德时代动力电池出货增长" in finance_parent.content
+    assert overview_children[0].metadata["chunk_type"] == "text"
+    assert overview_children[0].metadata["chunk_level"] == "paragraph"
+    assert overview_children[0].metadata["section_title"] == "财务表现"
+    assert overview_children[0].metadata["section_path"] == ["经营概览", "财务表现"]
+    assert overview_children[0].metadata["hierarchy_path"] == ["经营概览", "财务表现", overview_children[0].section]
     manual_doc = next(doc for doc in first.documents if doc.title == "manual")
     assert manual_doc.company == "默认公司"
     assert manual_doc.doc_type == "research_report"
@@ -257,10 +279,17 @@ def test_import_corpus_adds_structured_markdown_table_chunks(tmp_path):
     assert "| Revenue | 57,006 | 35,082 |" in chunk.content
     assert chunk.metadata["table_id"] == "tbl-demo-p0001-t01"
     assert chunk.metadata["row_count"] == 2
+    assert chunk.metadata["chunk_level"] == "table"
+    assert chunk.metadata["section_title"] == "Condensed Consolidated Statements of Income"
+    assert chunk.metadata["section_path"] == ["tables", "Condensed Consolidated Statements of Income"]
 
     row_chunks = [chunk for chunk in result.chunks if chunk.metadata.get("chunk_type") == "table_row"]
     assert len(row_chunks) == 1
     assert row_chunks[0].metadata["metric"] == "revenue"
+    assert row_chunks[0].metadata["chunk_level"] == "table_row"
+    assert row_chunks[0].metadata["parent_id"] == chunk.chunk_id
+    assert row_chunks[0].metadata["section_path"] == ["tables", "Condensed Consolidated Statements of Income"]
+    assert chunk.metadata["child_ids"] == [row_chunks[0].chunk_id]
     assert "Table Row Metric: revenue" in row_chunks[0].content
 
     facts = json.loads(result.facts_path.read_text(encoding="utf-8"))

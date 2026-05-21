@@ -6,12 +6,15 @@ from typing import Iterable
 
 
 PAGE_MARKER_RE = re.compile(r"<!--\s*page:\s*(\d+)\s*-->", re.IGNORECASE)
+HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 SENTENCE_BOUNDARY_RE = re.compile(r"(?<=[。！？.!?；;])\s+")
 
 
 @dataclass(frozen=True)
 class TextChunk:
     section: str
+    section_title: str
+    section_path: tuple[str, ...]
     page_num: int | None
     chunk_index: int
     content: str
@@ -22,6 +25,8 @@ def chunk_text(text: str, target_chars: int = 900) -> list[TextChunk]:
     chunks: list[TextChunk] = []
     buffer: list[str] = []
     current_page: int | None = None
+    current_section_title = "Document"
+    current_section_path: tuple[str, ...] = ("Document",)
 
     def flush() -> None:
         nonlocal buffer, current_page
@@ -31,13 +36,15 @@ def chunk_text(text: str, target_chars: int = 900) -> list[TextChunk]:
             return
         chunks.append(TextChunk(
             section=f"chunk-{len(chunks) + 1}",
+            section_title=current_section_title,
+            section_path=current_section_path,
             page_num=current_page,
             chunk_index=len(chunks),
             content=content,
         ))
         buffer = []
 
-    for page_num, paragraph in paragraphs:
+    for page_num, section_title, section_path, paragraph in paragraphs:
         for paragraph_part in _split_long_paragraph(paragraph, target_chars):
             if not paragraph_part.strip():
                 continue
@@ -47,35 +54,61 @@ def chunk_text(text: str, target_chars: int = 900) -> list[TextChunk]:
             if buffer and len(prospective) > target_chars:
                 flush()
                 current_page = page_num
+                current_section_title = section_title
+                current_section_path = section_path
             elif page_num is not None and current_page is not None and page_num != current_page and buffer:
                 flush()
                 current_page = page_num
+                current_section_title = section_title
+                current_section_path = section_path
             if current_page is None:
                 current_page = page_num
+            current_section_title = section_title
+            current_section_path = section_path
             buffer.append(paragraph_part.strip())
     flush()
     return chunks
 
 
-def _paragraphs_with_pages(text: str) -> Iterable[tuple[int | None, str]]:
+def _paragraphs_with_pages(text: str) -> Iterable[tuple[int | None, str, tuple[str, ...], str]]:
     current_page: int | None = None
+    headings: list[str] = []
     pending: list[str] = []
+
+    def section() -> tuple[str, tuple[str, ...]]:
+        path = tuple(headings) if headings else ("Document",)
+        return path[-1], path
+
     for line in text.splitlines():
         marker = PAGE_MARKER_RE.search(line)
         if marker:
             if pending:
-                yield current_page, "\n".join(pending).strip()
+                title, path = section()
+                yield current_page, title, path, "\n".join(pending).strip()
                 pending = []
             current_page = int(marker.group(1))
+            continue
+        heading = HEADING_RE.match(line.strip())
+        if heading:
+            if pending:
+                title, path = section()
+                yield current_page, title, path, "\n".join(pending).strip()
+                pending = []
+            level = len(heading.group(1))
+            title = heading.group(2).strip()
+            headings = headings[:level - 1]
+            headings.append(title)
             continue
         if line.strip():
             pending.append(line.strip())
             continue
         if pending:
-            yield current_page, "\n".join(pending).strip()
+            title, path = section()
+            yield current_page, title, path, "\n".join(pending).strip()
             pending = []
     if pending:
-        yield current_page, "\n".join(pending).strip()
+        title, path = section()
+        yield current_page, title, path, "\n".join(pending).strip()
 
 
 def _split_long_paragraph(paragraph: str, target_chars: int) -> list[str]:

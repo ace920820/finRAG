@@ -36,6 +36,7 @@ def build_table_row_chunks(
     document: Document,
     table_artifact: TableArtifact,
     start_index: int,
+    parent_chunk_id: str | None = None,
 ) -> list[Chunk]:
     rows = _rows(table_artifact.table)
     if not _is_financial_table(table_artifact.table, rows):
@@ -54,6 +55,11 @@ def build_table_row_chunks(
         metadata.update(
             {
                 "chunk_type": "table_row",
+                "chunk_level": "table_row",
+                "parent_id": parent_chunk_id,
+                "section_title": str(table_artifact.table.get("title") or table_id),
+                "section_path": ["tables", str(table_artifact.table.get("title") or table_id)],
+                "hierarchy_path": ["tables", str(table_artifact.table.get("title") or table_id), f"row:{row_index}"],
                 "row_index": row_index,
                 "metric": metric,
                 "metric_label": label,
