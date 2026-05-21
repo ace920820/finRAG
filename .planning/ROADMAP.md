@@ -131,12 +131,12 @@ Plans:
 
 ### Phase 21.1: Frontend RAG Process Showcase For v1.4 Demo (INSERTED)
 
-**Purpose:** Make the v1.4 advanced RAG architecture visible in the chat UI for interview/demo use before continuing into hierarchy and drill-down retrieval.
+**Purpose:** Make the v1.4 advanced RAG architecture visible in the chat UI for interview/demo use, including the Phase 22 hierarchy/drill-down trace when present.
 
-**Goal:** Add frontend display and interaction surfaces for the key intermediate artifacts produced by Phases 17-21: structured query plan, route/filter metadata, cascade trace, evidence selection/compression signals, and iterative retrieval steps.
+**Goal:** Add frontend display and interaction surfaces for the key intermediate artifacts produced by Phases 17-22: structured query plan, route/filter metadata, cascade trace, evidence selection/compression signals, iterative retrieval steps, and hierarchy/drill-down metadata.
 **Requirements**: SHOWCASE-01, SHOWCASE-02, SHOWCASE-03, SHOWCASE-04
-**Depends on:** Phase 21
-**Plans:** 0 plans
+**Depends on:** Phase 22
+**Plans:** 1 plan
 
 **Likely files:**
 - `frontend/src/api/finrag.ts`
@@ -150,11 +150,12 @@ Plans:
 - The UI displays query understanding fields such as intent, task type, entities, metrics, retrieval strategy, expansions, and sub-queries.
 - The retrieval panel shows route choice, applied metadata filters, cascade stages, input/output counts, degradation/fallback status, and final evidence selection.
 - Iterative analytical/reasoning queries show each retrieval step's purpose, generated query, route/filter metadata, and selected evidence summaries.
+- Hierarchy/drill-down UI shows real `hierarchy_drill_down`, `chunk_level`, `parent_id`, `child_ids`, and `section_path` data when backend payloads contain it.
 - Existing chat streaming, citation clicking, KB navigation, and simple factual/table QA flows remain usable.
 - The design is demo-oriented and information-rich rather than production-minimal; it should make intermediate processing legible during a walkthrough.
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 21.1 to break down)
+- [ ] 21.1-01-PLAN.md — Add frontend RAG process inspector for Phase 17-22 traces, including hierarchy/drill-down display.
 
 ### Phase 22: Hierarchical Chunking And Drill-down Retrieval
 
@@ -218,4 +219,4 @@ Plans:
 
 ## Next Action
 
-Return to Phase 21.1 frontend showcase planning, then use Phase 22 hierarchy metadata and drill-down trace in the demo UI.
+Execute Phase 21.1 frontend showcase, using Phase 22 hierarchy metadata and drill-down trace in the demo UI.
