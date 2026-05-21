@@ -40,7 +40,25 @@ def test_workflow_returns_all_stage_payloads():
         'metadata_filter',
         'hierarchy_drill_down',
         'fusion',
+        'iterative_merge',
     ]
+    # 验证 metadata_filter 改为 sum 聚合后包含 per_channel 三路明细
+    metadata_filter_stage = next(
+        stage for stage in result.retrieval_complete.cascade_trace if stage.name == 'metadata_filter'
+    )
+    assert 'per_channel' in metadata_filter_stage.metadata
+    assert {'bm25', 'vector', 'supplemental'} <= set(metadata_filter_stage.metadata['per_channel'].keys())
+    # 验证 hierarchy 与 iterative_merge 标记为 augment
+    hierarchy_stage = next(
+        stage for stage in result.retrieval_complete.cascade_trace if stage.name == 'hierarchy_drill_down'
+    )
+    assert hierarchy_stage.kind == 'augment'
+    iterative_merge_stage = next(
+        stage for stage in result.retrieval_complete.cascade_trace if stage.name == 'iterative_merge'
+    )
+    assert iterative_merge_stage.kind == 'augment'
+    assert iterative_merge_stage.metadata['per_step']
+    assert iterative_merge_stage.metadata['deduped_total'] == iterative_merge_stage.output_count
     assert result.rerank_complete.top5
     assert [stage.name for stage in result.rerank_complete.cascade_trace] == ['rerank', 'final_evidence']
     assert result.retrieval_complete.iterative_trace is not None

@@ -25,10 +25,12 @@ RetrievalCascadeStageName = Literal[
     "metadata_filter",
     "coarse_recall",
     "hierarchy_drill_down",
+    "iterative_merge",
     "fusion",
     "rerank",
     "final_evidence",
 ]
+RetrievalCascadeStageKind = Literal["filter", "augment"]
 IterativeRetrievalStepPurpose = Literal[
     "background_facts",
     "risk_or_driver_evidence",
@@ -75,6 +77,7 @@ class RetrievalCascadeStage(BaseModel):
     method: str
     input_count: int = 0
     output_count: int = 0
+    kind: RetrievalCascadeStageKind = "filter"
     degraded: bool = False
     fallback_reason: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)

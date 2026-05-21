@@ -13,7 +13,14 @@ from app.core.retrieval.hybrid import HybridRetriever
 from app.core.retrieval.rerank_service import RerankService
 from app.core.retrieval.trace import rerank_trace
 from app.models.events import DoneEvent, IntentDetectedEvent, QueryRewriteEvent, RerankCompleteEvent, RetrievalCompleteEvent
-from app.models.schemas import CitationMetadata, IterativeRetrievalStep, IterativeRetrievalTrace, QueryRequest, RetrievalResultItem
+from app.models.schemas import (
+    CitationMetadata,
+    IterativeRetrievalStep,
+    IterativeRetrievalTrace,
+    QueryRequest,
+    RetrievalCascadeStage,
+    RetrievalResultItem,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -183,6 +190,30 @@ def _retrieve_candidates(query: str, rewrite: QueryRewriteEvent, retriever):
             )
             return single_pass, iterative_trace, single_pass.fused_top20
         iterative_trace = iterative_trace.model_copy(update={"steps": executed_steps})
+        # 在 single_pass 的 cascade_trace 末尾追加 iterative_merge 阶段，
+        # 让前端能看到 single_pass.fused_top20 → iterative_dedupe 的数字流转
+        per_step_metadata = [
+            {
+                "index": step.index,
+                "purpose": step.purpose,
+                "candidates": len(step.selected_evidence_ids),
+            }
+            for step in executed_steps
+        ]
+        single_pass.cascade_trace.append(
+            RetrievalCascadeStage(
+                name="iterative_merge",
+                method=f"{len(executed_steps)}_steps_dedupe",
+                kind="augment",
+                input_count=len(single_pass.fused_top20),
+                output_count=len(candidates),
+                metadata={
+                    "per_step": per_step_metadata,
+                    "deduped_total": len(candidates),
+                    "raw_step_total": sum(int(s["candidates"]) for s in per_step_metadata),
+                },
+            )
+        )
         return single_pass, iterative_trace, candidates
     except Exception:
         iterative_trace = iterative_trace.model_copy(update={"degraded": True, "fallback_reason": "iterative_step_failed"})

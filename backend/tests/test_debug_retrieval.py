@@ -30,11 +30,20 @@ def test_debug_retrieval_endpoint_returns_retrieval_and_rerank_sections():
         'metadata_filter',
         'hierarchy_drill_down',
         'fusion',
+        'iterative_merge',
         'rerank',
         'final_evidence',
     ]
     metadata_filter = next(stage for stage in payload['cascade_trace'] if stage['name'] == 'metadata_filter')
     assert metadata_filter['metadata']['applied_at'] == 'post_recall'
+    assert 'per_channel' in metadata_filter['metadata']
+    coarse_recall = next(stage for stage in payload['cascade_trace'] if stage['name'] == 'coarse_recall')
+    assert 'per_channel' in coarse_recall['metadata']
+    iterative_merge = next(stage for stage in payload['cascade_trace'] if stage['name'] == 'iterative_merge')
+    assert iterative_merge['kind'] == 'augment'
+    hierarchy = next(stage for stage in payload['cascade_trace'] if stage['name'] == 'hierarchy_drill_down')
+    assert hierarchy['kind'] == 'augment'
+    assert 'parent_candidates_found' in hierarchy['metadata']
     final_evidence = payload['cascade_trace'][-1]
     assert final_evidence['output_count'] <= final_evidence['input_count']
     assert 'dropped_duplicate_count' in final_evidence['metadata']

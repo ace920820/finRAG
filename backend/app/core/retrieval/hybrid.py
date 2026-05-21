@@ -78,6 +78,7 @@ class HybridRetriever:
                 method=route_decision.route,
                 input_count=1,
                 output_count=1,
+                kind="filter",
                 metadata={
                     "route": route_decision.route,
                     "route_reason": route_decision.reason,
@@ -116,8 +117,9 @@ class HybridRetriever:
         bm25_hits = list(filtered_bm25.filtered_items)
         vector_hits = list(filtered_vector.filtered_items)
         supplemental_hits = list(filtered_supplemental.filtered_items)
-        filter_before_count = max(filtered_bm25.before_count, filtered_vector.before_count, filtered_supplemental.before_count)
-        filter_after_count = max(filtered_bm25.after_count, filtered_vector.after_count, filtered_supplemental.after_count)
+        # 三路 sum 聚合（与上下游 coarse_recall/fusion 数字流对齐）
+        filter_before_count = filtered_bm25.before_count + filtered_vector.before_count + filtered_supplemental.before_count
+        filter_after_count = filtered_bm25.after_count + filtered_vector.after_count + filtered_supplemental.after_count
         filters_relaxed = filtered_bm25.relaxed or filtered_vector.relaxed or filtered_supplemental.relaxed
         filter_fallback_reason = filtered_bm25.fallback_reason or filtered_vector.fallback_reason or filtered_supplemental.fallback_reason
         applied_filters = filtered_bm25.filters or metadata_filters
@@ -129,9 +131,16 @@ class HybridRetriever:
                     method="bm25+vector+supplemental",
                     input_count=1,
                     output_count=raw_bm25_count + raw_vector_count + raw_supplemental_count,
+                    kind="filter",
                     degraded=bool(bm25_error or vector_error),
                     fallback_reason=bm25_error or vector_error,
                     metadata={
+                        "per_channel": {
+                            "bm25": {"count": raw_bm25_count, "error": bm25_error},
+                            "vector": {"count": raw_vector_count, "error": vector_error},
+                            "supplemental": {"count": raw_supplemental_count, "error": None},
+                        },
+                        # 保留旧字段，避免老消费者立刻崩
                         "bm25_count": raw_bm25_count,
                         "vector_count": raw_vector_count,
                         "supplemental_count": raw_supplemental_count,
@@ -144,18 +153,28 @@ class HybridRetriever:
                     method="metadata_post_recall_filter",
                     input_count=filter_before_count,
                     output_count=filter_after_count,
+                    kind="filter",
                     degraded=filters_relaxed,
                     fallback_reason=filter_fallback_reason,
                     metadata={
                         "applied_at": "post_recall",
                         "applied_filters": dict(applied_filters or {}),
+                        "per_channel": {
+                            "bm25": {"before": filtered_bm25.before_count, "after": filtered_bm25.after_count},
+                            "vector": {"before": filtered_vector.before_count, "after": filtered_vector.after_count},
+                            "supplemental": {"before": filtered_supplemental.before_count, "after": filtered_supplemental.after_count},
+                        },
                     },
                 ),
             ]
         )
         if self._hierarchy_drill_down_enabled(plan):
             all_hits = list(bm25_hits) + list(vector_hits) + list(supplemental_hits)
-            drill_down_input_count = len(all_hits)
+            parent_count_found = sum(
+                1
+                for h in all_hits
+                if (getattr(h, "metadata", {}) or {}).get("chunk_type") in HIERARCHY_PARENT_CHUNK_TYPES
+            )
             drill_down_hits = self._hierarchy_drill_down_hits(
                 all_hits,
                 existing_ids={hit.chunk_id for hit in all_hits},
@@ -168,9 +187,12 @@ class HybridRetriever:
                 RetrievalCascadeStage(
                     name="hierarchy_drill_down",
                     method="parent_child_metadata",
-                    input_count=drill_down_input_count,
+                    input_count=parent_count_found,
                     output_count=len(drill_down_hits),
+                    kind="augment",
                     metadata={
+                        "parent_candidates_found": parent_count_found,
+                        "children_expanded": len(drill_down_hits),
                         "children_per_parent_limit": HIERARCHY_CHILDREN_PER_PARENT_LIMIT,
                         "total_child_limit": HIERARCHY_TOTAL_CHILD_LIMIT,
                     },
@@ -183,6 +205,7 @@ class HybridRetriever:
                 method="rrf",
                 input_count=filtered_candidate_count,
                 output_count=len(fused_hits),
+                kind="filter",
                 metadata={"rrf_k": self.rrf_k, "top_k": limit},
             )
         )

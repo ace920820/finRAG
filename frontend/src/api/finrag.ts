@@ -4,7 +4,8 @@ export type BackendDocType = 'financial_report' | 'research_report' | 'news';
 export type QueryIntent = 'factual' | 'analytical' | 'reasoning';
 export type QueryTaskType = 'metric_lookup' | 'causal_analysis' | 'risk_analysis' | 'trend_analysis' | 'comparison' | 'general_analysis';
 export type RetrievalStrategy = 'table_fact_first' | 'financial_report_first' | 'research_report_analysis' | 'general_hybrid';
-export type CascadeStageName = 'query_plan' | 'metadata_filter' | 'coarse_recall' | 'hierarchy_drill_down' | 'fusion' | 'rerank' | 'final_evidence';
+export type CascadeStageName = 'query_plan' | 'metadata_filter' | 'coarse_recall' | 'hierarchy_drill_down' | 'iterative_merge' | 'fusion' | 'rerank' | 'final_evidence';
+export type CascadeStageKind = 'filter' | 'augment';
 
 export type MetadataValue = string | number | boolean | null | MetadataValue[] | { [key: string]: MetadataValue };
 export type MetadataRecord = Record<string, MetadataValue>;
@@ -95,6 +96,7 @@ export interface RetrievalCascadeStage {
   method: string;
   input_count: number;
   output_count: number;
+  kind?: CascadeStageKind;
   degraded: boolean;
   fallback_reason?: string | null;
   metadata: MetadataRecord;

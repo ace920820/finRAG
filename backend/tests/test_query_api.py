@@ -58,9 +58,17 @@ def test_query_endpoint_streams_expected_events():
         'metadata_filter',
         'hierarchy_drill_down',
         'fusion',
+        'iterative_merge',
     ]
     metadata_filter = next(stage for stage in retrieval['cascade_trace'] if stage['name'] == 'metadata_filter')
     assert metadata_filter['metadata']['applied_at'] == 'post_recall'
+    assert 'per_channel' in metadata_filter['metadata']
+    assert {'bm25', 'vector', 'supplemental'} <= set(metadata_filter['metadata']['per_channel'].keys())
+    iterative_merge = next(stage for stage in retrieval['cascade_trace'] if stage['name'] == 'iterative_merge')
+    assert iterative_merge['kind'] == 'augment'
+    assert iterative_merge['metadata']['per_step']
+    hierarchy = next(stage for stage in retrieval['cascade_trace'] if stage['name'] == 'hierarchy_drill_down')
+    assert hierarchy['kind'] == 'augment'
 
     rerank = _event(events, 'rerank_complete')
     assert rerank['top5']

@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { Document, RetrievalSnapshot } from '../types';
-import { MetadataRecord, RetrievalCascadeStage } from '../api/finrag';
+import { CascadeStageName, MetadataRecord, RetrievalCascadeStage } from '../api/finrag';
 
 interface RagProcessInspectorProps {
   snapshot: RetrievalSnapshot;
@@ -42,8 +42,10 @@ export function RagProcessInspector({ snapshot }: RagProcessInspectorProps) {
           <div className="space-y-2">
             <KeyValue label="Route" value={stringValue(routeStage?.metadata.route) || routeStage?.method || 'unknown'} />
             <KeyValue label="Reason" value={stringValue(routeStage?.metadata.route_reason) || 'none'} />
-            <KeyValue label="Filter Count" value={`${filterStage?.input_count ?? 0} -> ${filterStage?.output_count ?? 0}`} />
+            <KeyValue label="Filter Count" value={`${filterStage?.input_count ?? 0} → ${filterStage?.output_count ?? 0} (三路总和)`} />
             {filterStage?.degraded && <Badge label={filterStage.fallback_reason || 'filters relaxed'} tone="amber" />}
+            {filterStage && <StageBreakdown stage={filterStage} />}
+            <div className="text-[10px] font-medium text-slate-400">Applied filters</div>
             <MetadataBlock metadata={(filterStage?.metadata.applied_filters as MetadataRecord | undefined) ?? {}} />
           </div>
         ) : (
@@ -61,11 +63,10 @@ export function RagProcessInspector({ snapshot }: RagProcessInspectorProps) {
                     <div className="break-words text-[11px] font-semibold text-slate-700">{stage.name}</div>
                     <div className="break-words text-[10px] text-slate-500">{stage.method}</div>
                   </div>
-                  <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">
-                    {stage.input_count} {'->'} {stage.output_count}
-                  </span>
+                  <CountBadge stage={stage} />
                 </div>
                 {stage.degraded && <div className="mt-1 text-[10px] text-amber-700">{stage.fallback_reason || 'degraded'}</div>}
+                <StageBreakdown stage={stage} />
               </li>
             ))}
           </ol>
@@ -99,8 +100,17 @@ export function RagProcessInspector({ snapshot }: RagProcessInspectorProps) {
           <div className="space-y-2">
             {hierarchyStage && (
               <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-800">
-                <div className="font-semibold">hierarchy_drill_down</div>
-                <div>{hierarchyStage.input_count} parents/candidates {'->'} {hierarchyStage.output_count} child evidence</div>
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold">hierarchy_drill_down</div>
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800">
+                    +{hierarchyStage.output_count} children
+                  </span>
+                </div>
+                <div className="mt-0.5">
+                  parents found: {(hierarchyStage.metadata.parent_candidates_found as number | undefined) ?? hierarchyStage.input_count}
+                  {' · '}
+                  children expanded: {hierarchyStage.output_count}
+                </div>
               </div>
             )}
             {hierarchyEvidence.map(item => (
@@ -146,6 +156,119 @@ function TagList({ title, items }: { title: string; items: string[] }) {
       </div>
     </div>
   );
+}
+
+function CountBadge({ stage }: { stage: RetrievalCascadeStage }) {
+  const isAugment = stage.kind === 'augment';
+  const label = isAugment
+    ? `+${stage.output_count} ${augmentLabelFor(stage.name)}`
+    : `${stage.input_count} → ${stage.output_count}`;
+  return (
+    <span className={clsx(
+      'shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium',
+      isAugment ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600',
+    )}>
+      {label}
+    </span>
+  );
+}
+
+function augmentLabelFor(name: CascadeStageName): string {
+  if (name === 'hierarchy_drill_down') return 'children';
+  if (name === 'iterative_merge') return 'merged';
+  return 'added';
+}
+
+function StageBreakdown({ stage }: { stage: RetrievalCascadeStage }) {
+  const perChannel = stage.metadata.per_channel as Record<string, MetadataRecord> | undefined;
+  const perStep = stage.metadata.per_step as MetadataRecord[] | undefined;
+  const evidencePackMeta = stage.name === 'final_evidence' ? stage.metadata : undefined;
+
+  if (perChannel) {
+    return (
+      <div className="mt-1.5 grid gap-0.5 rounded bg-slate-50 px-2 py-1 text-[10px] text-slate-600">
+        <div className="mb-0.5 text-[9px] uppercase tracking-wide text-slate-400">三路明细</div>
+        {Object.entries(perChannel).map(([channel, stats]) => {
+          const before = (stats as MetadataRecord).before;
+          const after = (stats as MetadataRecord).after;
+          const count = (stats as MetadataRecord).count;
+          const error = (stats as MetadataRecord).error;
+          const value = before !== undefined && after !== undefined
+            ? `${String(before)} → ${String(after)}`
+            : String(count ?? 0);
+          return (
+            <div key={channel} className="flex justify-between">
+              <span className="text-slate-500">{channel}</span>
+              <span className="text-slate-700">
+                {value}{error ? ' ⚠' : ''}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (perStep) {
+    return (
+      <div className="mt-1.5 grid gap-0.5 rounded bg-slate-50 px-2 py-1 text-[10px] text-slate-600">
+        <div className="mb-0.5 text-[9px] uppercase tracking-wide text-slate-400">迭代步骤明细</div>
+        {perStep.map((step, i) => (
+          <div key={i} className="flex justify-between">
+            <span className="text-slate-500">
+              step {String(step.index ?? i + 1)} · {String(step.purpose ?? '')}
+            </span>
+            <span className="text-slate-700">{String(step.candidates ?? 0)} 候选</span>
+          </div>
+        ))}
+        {stage.metadata.deduped_total !== undefined && (
+          <div className="mt-0.5 flex justify-between border-t border-slate-200 pt-0.5">
+            <span className="text-slate-500">合并去重后</span>
+            <span className="font-medium text-slate-700">{String(stage.metadata.deduped_total)}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (stage.name === 'hierarchy_drill_down') {
+    const found = stage.metadata.parent_candidates_found as number | undefined;
+    if (found !== undefined) {
+      return (
+        <div className="mt-1.5 rounded bg-slate-50 px-2 py-1 text-[10px] text-slate-600">
+          <div className="flex justify-between">
+            <span className="text-slate-500">父级候选数</span>
+            <span className="text-slate-700">{found}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-slate-500">扩展子证据</span>
+            <span className="text-slate-700">+{stage.output_count}</span>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  if (evidencePackMeta && evidencePackMeta.dropped_duplicate_count !== undefined) {
+    return (
+      <div className="mt-1.5 rounded bg-slate-50 px-2 py-1 text-[10px] text-slate-600">
+        <div className="flex justify-between">
+          <span className="text-slate-500">原始 top-k</span>
+          <span className="text-slate-700">{String(evidencePackMeta.original_count ?? 0)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">压缩后</span>
+          <span className="text-slate-700">{String(evidencePackMeta.compressed_count ?? 0)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">去重移除</span>
+          <span className="text-slate-700">{String(evidencePackMeta.dropped_duplicate_count ?? 0)}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function Badge({ label, tone }: { label: string; tone: 'blue' | 'emerald' | 'amber' | 'slate' }) {
