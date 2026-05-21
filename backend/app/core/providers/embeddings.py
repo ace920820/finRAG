@@ -38,7 +38,7 @@ class SiliconEmbeddingProvider:
         self.api_key = api_key if api_key is not None else settings.model_api_key_silicon
         self.model = model or settings.embedding_model
         self.timeout_seconds = settings.provider_timeout_seconds
-        self.max_batch_items = 2
+        self.max_batch_items = 32
         self.max_batch_bytes = 200_000
         self.max_retries = 8
         self.retry_sleep_seconds = 20.0
@@ -97,7 +97,7 @@ class BailianEmbeddingProvider:
         self.model = model or settings.embedding_model
         self.timeout_seconds = settings.provider_timeout_seconds
         # Keep requests well under common OpenAI-compatible body limits (DashScope is 6 MiB).
-        self.max_batch_items = 2
+        self.max_batch_items = 32
         self.max_batch_bytes = 200_000
         self.max_retries = 8
         self.retry_sleep_seconds = 20.0

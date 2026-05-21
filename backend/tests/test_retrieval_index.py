@@ -23,10 +23,21 @@ def test_bm25_and_vector_retrieval_return_hits():
     assert any(result.chunk_id for result in vector_results)
 
 
-def test_build_index_script_creates_artifacts():
+def test_build_index_script_creates_artifacts(tmp_path):
     backend_dir = Path(__file__).resolve().parents[1]
-    subprocess.run(['python3', 'scripts/build_index.py'], cwd=backend_dir, check=True)
-    index_dir = backend_dir / 'app' / 'data' / 'index'
+    index_dir = tmp_path / "index"
+    subprocess.run(
+        [
+            'python3',
+            'scripts/build_index.py',
+            '--processed-dir',
+            str(backend_dir / 'app' / 'data' / 'processed'),
+            '--index-dir',
+            str(index_dir),
+        ],
+        cwd=backend_dir,
+        check=True,
+    )
     assert (index_dir / 'bm25_index.json').exists()
     assert (index_dir / 'vector_index.json').exists()
 
