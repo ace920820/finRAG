@@ -33,6 +33,11 @@ Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanc
 
 **Purpose:** Convert query analysis from simple expansion into a structured planning layer that downstream retrieval can consume.
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 17-01-PLAN.md — Add structured query plan contracts, shared ontology, parser builder, and API/SSE regressions.
+
 **Likely files:**
 - `backend/app/core/agent/query_analysis.py`
 - `backend/app/models/schemas.py`
