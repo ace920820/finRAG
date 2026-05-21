@@ -20,6 +20,14 @@ RetrievalStrategy = Literal[
     "general_hybrid",
 ]
 ScoreSource = Literal["rerank", "hybrid_fusion", "mock"]
+RetrievalCascadeStageName = Literal[
+    "query_plan",
+    "metadata_filter",
+    "coarse_recall",
+    "fusion",
+    "rerank",
+    "final_evidence",
+]
 
 
 class QueryEntity(BaseModel):
@@ -54,6 +62,16 @@ class RetrievalPlan(BaseModel):
     retrieval_strategy: RetrievalStrategy = "general_hybrid"
     filters: dict[str, Any] = Field(default_factory=dict)
     signals: list[str] = Field(default_factory=list)
+
+
+class RetrievalCascadeStage(BaseModel):
+    name: RetrievalCascadeStageName
+    method: str
+    input_count: int = 0
+    output_count: int = 0
+    degraded: bool = False
+    fallback_reason: Optional[str] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Document(BaseModel):

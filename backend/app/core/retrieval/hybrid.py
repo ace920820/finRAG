@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 
 from app.core.config import get_settings
@@ -13,7 +13,7 @@ from app.core.retrieval.bm25_store import BM25Result, BM25Store
 from app.core.retrieval.index_store import RetrievalIndexStore
 from app.core.retrieval.table_facts import is_table_fact_period_compatible, is_table_metric_query, query_table_facts
 from app.core.retrieval.vector_store import VectorResult, VectorStore
-from app.models.schemas import RetrievalResultItem
+from app.models.schemas import RetrievalCascadeStage, RetrievalResultItem
 from app.models.schemas import RetrievalPlan
 
 
@@ -34,6 +34,7 @@ class HybridRetrievalResult:
     filter_after_count: Optional[int] = None
     filters_relaxed: bool = False
     filter_fallback_reason: Optional[str] = None
+    cascade_trace: List[RetrievalCascadeStage] = field(default_factory=list)
 
 
 class HybridRetriever:
@@ -58,8 +59,23 @@ class HybridRetriever:
         limit = top_k or self.settings.retrieval_top_k
         route_decision: RouteDecision = choose_route(plan, query)
         metadata_filters = build_metadata_filters(plan)
+        cascade_trace: List[RetrievalCascadeStage] = [
+            RetrievalCascadeStage(
+                name="query_plan",
+                method=route_decision.route,
+                input_count=1,
+                output_count=1,
+                metadata={
+                    "route": route_decision.route,
+                    "route_reason": route_decision.reason,
+                    "task_type": plan.task_type if plan else None,
+                    "retrieval_strategy": plan.retrieval_strategy if plan else None,
+                },
+            )
+        ]
         bm25_hits: List[BM25Result] = []
         vector_hits: List[VectorResult] = []
+        supplemental_hits: List[BM25Result] = []
         bm25_error: Optional[str] = None
         vector_error: Optional[str] = None
         try:
@@ -78,13 +94,59 @@ class HybridRetriever:
         except Exception:
             logger.exception("supplemental hits failed")
             supplemental_hits = []
+        raw_bm25_count = len(bm25_hits)
+        raw_vector_count = len(vector_hits)
+        raw_supplemental_count = len(supplemental_hits)
         filtered_bm25 = apply_metadata_filters(bm25_hits, metadata_filters, minimum_count=1)
         filtered_vector = apply_metadata_filters(vector_hits, metadata_filters, minimum_count=1)
         filtered_supplemental = apply_metadata_filters(supplemental_hits, metadata_filters, minimum_count=1)
         bm25_hits = list(filtered_bm25.filtered_items)
         vector_hits = list(filtered_vector.filtered_items)
         supplemental_hits = list(filtered_supplemental.filtered_items)
+        filter_before_count = max(filtered_bm25.before_count, filtered_vector.before_count, filtered_supplemental.before_count)
+        filter_after_count = max(filtered_bm25.after_count, filtered_vector.after_count, filtered_supplemental.after_count)
+        filters_relaxed = filtered_bm25.relaxed or filtered_vector.relaxed or filtered_supplemental.relaxed
+        filter_fallback_reason = filtered_bm25.fallback_reason or filtered_vector.fallback_reason or filtered_supplemental.fallback_reason
+        applied_filters = filtered_bm25.filters or metadata_filters
+        filtered_candidate_count = len(bm25_hits) + len(vector_hits) + len(supplemental_hits)
+        cascade_trace.extend(
+            [
+                RetrievalCascadeStage(
+                    name="metadata_filter",
+                    method="metadata_pre_filter",
+                    input_count=filter_before_count,
+                    output_count=filter_after_count,
+                    degraded=filters_relaxed,
+                    fallback_reason=filter_fallback_reason,
+                    metadata={"applied_filters": dict(applied_filters or {})},
+                ),
+                RetrievalCascadeStage(
+                    name="coarse_recall",
+                    method="bm25+vector+supplemental",
+                    input_count=1,
+                    output_count=raw_bm25_count + raw_vector_count + raw_supplemental_count,
+                    degraded=bool(bm25_error or vector_error),
+                    fallback_reason=bm25_error or vector_error,
+                    metadata={
+                        "bm25_count": raw_bm25_count,
+                        "vector_count": raw_vector_count,
+                        "supplemental_count": raw_supplemental_count,
+                        "bm25_error": bm25_error,
+                        "vector_error": vector_error,
+                    },
+                ),
+            ]
+        )
         fused_hits = self._rrf_fuse(query, bm25_hits, vector_hits, supplemental_hits, top_k=limit)
+        cascade_trace.append(
+            RetrievalCascadeStage(
+                name="fusion",
+                method="rrf",
+                input_count=filtered_candidate_count,
+                output_count=len(fused_hits),
+                metadata={"rrf_k": self.rrf_k, "top_k": limit},
+            )
+        )
         return HybridRetrievalResult(
             bm25_results=[self._to_result(hit, rank + 1) for rank, hit in enumerate(bm25_hits)],
             vector_results=[self._to_result(hit, rank + 1) for rank, hit in enumerate(vector_hits)],
@@ -93,11 +155,12 @@ class HybridRetriever:
             vector_error=vector_error,
             route=route_decision.route,
             route_reason=route_decision.reason,
-            applied_filters=filtered_bm25.filters or metadata_filters,
-            filter_before_count=max(filtered_bm25.before_count, filtered_vector.before_count, filtered_supplemental.before_count),
-            filter_after_count=max(filtered_bm25.after_count, filtered_vector.after_count, filtered_supplemental.after_count),
-            filters_relaxed=filtered_bm25.relaxed or filtered_vector.relaxed or filtered_supplemental.relaxed,
-            filter_fallback_reason=filtered_bm25.fallback_reason or filtered_vector.fallback_reason or filtered_supplemental.fallback_reason,
+            applied_filters=applied_filters,
+            filter_before_count=filter_before_count,
+            filter_after_count=filter_after_count,
+            filters_relaxed=filters_relaxed,
+            filter_fallback_reason=filter_fallback_reason,
+            cascade_trace=cascade_trace,
         )
 
     def _rrf_fuse(

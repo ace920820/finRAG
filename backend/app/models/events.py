@@ -2,7 +2,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.models.schemas import CitationMetadata, QueryIntent, RerankResultItem, RetrievalPlan, RetrievalResultItem, ScoreSource
+from app.models.schemas import CitationMetadata, QueryIntent, RerankResultItem, RetrievalCascadeStage, RetrievalPlan, RetrievalResultItem, ScoreSource
 
 
 class QueryRewriteEvent(BaseModel):
@@ -18,6 +18,7 @@ class RetrievalCompleteEvent(BaseModel):
     fused_top20: list[RetrievalResultItem] = Field(default_factory=list)
     bm25_error: Optional[str] = None
     vector_error: Optional[str] = None
+    cascade_trace: list[RetrievalCascadeStage] = Field(default_factory=list)
 
 
 class RerankCompleteEvent(BaseModel):
@@ -25,6 +26,7 @@ class RerankCompleteEvent(BaseModel):
     degraded: bool = False
     fallback_reason: Optional[str] = None
     score_source: ScoreSource = "rerank"
+    cascade_trace: list[RetrievalCascadeStage] = Field(default_factory=list)
 
 
 class IntentDetectedEvent(BaseModel):

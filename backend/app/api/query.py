@@ -11,6 +11,7 @@ from app.core.agent.query_analysis import analyze_query
 from app.core.agent.workflow import build_citations, estimate_tokens, retrieval_query
 from app.core.retrieval.hybrid import HybridRetriever
 from app.core.retrieval.rerank_service import RerankService
+from app.core.retrieval.trace import rerank_trace
 from app.core.sse import format_sse_error, format_sse_event, format_sse_ping, split_markdown_chunks
 from app.models.events import DoneEvent, RerankCompleteEvent, RetrievalCompleteEvent
 from app.models.schemas import QueryRequest
@@ -52,6 +53,7 @@ def query(request: QueryRequest) -> StreamingResponse:
                     fused_top20=retrieval_result.fused_top20,
                     bm25_error=getattr(retrieval_result, "bm25_error", None),
                     vector_error=getattr(retrieval_result, "vector_error", None),
+                    cascade_trace=list(getattr(retrieval_result, "cascade_trace", []) or []),
                 )
                 yield format_sse_event("retrieval_complete", retrieval)
                 retrieval_emitted = True
@@ -64,6 +66,12 @@ def query(request: QueryRequest) -> StreamingResponse:
                     degraded=rerank_result.degraded,
                     fallback_reason=rerank_result.fallback_reason,
                     score_source=rerank_result.score_source,
+                    cascade_trace=rerank_trace(
+                        len(retrieval_result.fused_top20),
+                        len(rerank_result.top5),
+                        rerank_result.degraded,
+                        rerank_result.fallback_reason,
+                    ),
                 )
                 evidence = rerank_result.top5
                 yield format_sse_event("rerank_complete", rerank)

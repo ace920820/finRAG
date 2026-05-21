@@ -48,9 +48,16 @@ def test_query_endpoint_streams_expected_events():
     retrieval = _event(events, 'retrieval_complete')
     assert retrieval['bm25_results']
     assert retrieval['fused_top20']
+    assert [stage['name'] for stage in retrieval['cascade_trace']] == [
+        'query_plan',
+        'metadata_filter',
+        'coarse_recall',
+        'fusion',
+    ]
 
     rerank = _event(events, 'rerank_complete')
     assert rerank['top5']
+    assert [stage['name'] for stage in rerank['cascade_trace']] == ['rerank', 'final_evidence']
     assert rerank['degraded'] is False
     assert rerank['score_source'] == 'mock'
     assert rerank['top5'][0]['citation_id'] == 1
@@ -103,6 +110,7 @@ def test_query_endpoint_exposes_vector_retrieval_error(monkeypatch):
     retrieval = _event(_parse_sse(response.text), 'retrieval_complete')
     assert retrieval['vector_results'] == []
     assert retrieval['vector_error'] == "Vector index dimension mismatch"
+    assert retrieval['cascade_trace'] == []
 
 def test_query_endpoint_rejects_invalid_body():
     client = TestClient(create_app())
@@ -149,6 +157,7 @@ def test_query_endpoint_returns_table_fact_metadata_for_nvidia_revenue(monkeypat
     events = _parse_sse(response.text)
     rerank = _event(events, 'rerank_complete')
     top = rerank['top5'][0]
+    assert [stage['name'] for stage in rerank['cascade_trace']] == ['rerank', 'final_evidence']
     assert top['metadata']['chunk_type'] == 'table_fact'
     assert top['metadata']['metric'] == 'revenue'
     assert top['metadata']['raw_value'] == '57,006'
@@ -200,3 +209,4 @@ def test_query_endpoint_exposes_retrieval_channel_errors(monkeypatch):
     assert retrieval['vector_results'] == []
     assert retrieval['vector_error'] == "Vector index dimension mismatch: query=1024, index=8"
     assert retrieval['bm25_error'] is None
+    assert retrieval['cascade_trace'] == []

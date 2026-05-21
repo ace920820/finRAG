@@ -20,3 +20,14 @@ def test_debug_retrieval_endpoint_returns_retrieval_and_rerank_sections():
     assert payload['retrieval_complete']['vector_results']
     assert payload['retrieval_complete']['fused_top20']
     assert payload['rerank_complete']['top5']
+    assert [stage['name'] for stage in payload['cascade_trace']] == [
+        'query_plan',
+        'metadata_filter',
+        'coarse_recall',
+        'fusion',
+        'rerank',
+        'final_evidence',
+    ]
+    assert payload['retrieval_complete']['cascade_trace']
+    assert payload['rerank_complete']['cascade_trace']
+    assert all('method' in stage and 'input_count' in stage and 'output_count' in stage for stage in payload['cascade_trace'])
