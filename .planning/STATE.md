@@ -56,6 +56,7 @@ Run live demo validation for the Phase 17-22 flow. If hierarchy metadata is miss
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-21 | 260521-wvm | Upgrade interview guide with v1.4 backend and frontend showcase content | Rewrote `docs/FinRAG_面试讲解指南.md` as a comprehensive v1.4 interview guide covering Phase 17-22 backend architecture, Phase 21.1 frontend panels, demo flow, follow-up answers, and honest production boundaries. |
 | 2026-05-21 | phase-21.1-execute | Completed frontend RAG process showcase | Added typed v1.4 process payload capture, right-sidebar process inspector, iterative retrieval display, and real Phase 22 hierarchy/drill-down display when present; frontend lint/build passed. |
 | 2026-05-21 | phase-22-execute | Completed hierarchical chunking and drill-down retrieval | Added deterministic section/table parent-child metadata, bounded `hierarchy_drill_down` retrieval trace, and verified 116 backend tests. |
 | 2026-05-21 | phase-22-plan | Planned hierarchical chunking and drill-down retrieval | Added research, validation, and a verified execution plan for retrievable section/table parent chunks, bounded child drill-down, and deterministic import/reindex compatibility. |
