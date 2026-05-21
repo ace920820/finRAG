@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -9,6 +10,9 @@ from app.core.ingestion.fixture_loader import load_active_chunks
 from app.core.providers.embeddings import build_embedding_provider
 from app.core.retrieval.bm25_store import BM25Store
 from app.core.retrieval.vector_store import VectorStore
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -34,6 +38,8 @@ class RetrievalIndexStore:
                 chunks = chunks or load_active_chunks()
                 embedding_provider = build_embedding_provider()
                 vector_store = VectorStore.from_chunks(chunks, embedding_provider)
+            else:
+                _warn_if_vector_dimension_mismatch(vector_store)
         else:
             chunks = chunks or load_active_chunks()
             embedding_provider = build_embedding_provider()
@@ -68,3 +74,20 @@ class RetrievalIndexStore:
         index_dir.mkdir(parents=True, exist_ok=True)
         self.vector_store.save(index_dir)
         self._save_bm25(index_dir, self.bm25_store)
+
+
+def _warn_if_vector_dimension_mismatch(vector_store: VectorStore) -> None:
+    # 21.1 修复后不再自动重建以避免线上卡死。这里只在加载时记录维度信息，
+    # 不调用 embed_texts 探测（启动路径需保持零远程调用，由查询时的失败日志兜底）。
+    if not vector_store.dimension:
+        return
+    settings = get_settings()
+    provider = getattr(settings, "embedding_provider", "unknown")
+    model = getattr(settings, "embedding_model", "unknown")
+    logger.info(
+        "vector index loaded: dimension=%d provider=%s model=%s (if dimension mismatches provider, "
+        "vector retrieval will degrade until /api/kb/reindex is triggered)",
+        vector_store.dimension,
+        provider,
+        model,
+    )

@@ -22,6 +22,12 @@ logger = logging.getLogger(__name__)
 _default_retriever_lock = threading.Lock()
 _default_retriever: Optional["HybridRetriever"] = None
 
+# Drill-down 配置：固定子分数让父子在 RRF 融合中位次稳定；上限避免单查询候选爆炸。
+HIERARCHY_PARENT_CHUNK_TYPES = frozenset({"section", "table"})
+HIERARCHY_DRILL_DOWN_SCORE = 0.12
+HIERARCHY_CHILDREN_PER_PARENT_LIMIT = 3
+HIERARCHY_TOTAL_CHILD_LIMIT = 8
+
 
 @dataclass(frozen=True)
 class HybridRetrievalResult:
@@ -46,6 +52,7 @@ class HybridRetriever:
         self.vector_store = vector_store
         self.rrf_k = rrf_k
         self.settings = get_settings()
+        self._children_by_parent: Optional[Dict[str, List[object]]] = None
 
     @classmethod
     def from_chunks(cls, chunks, embedding_provider=None) -> "HybridRetriever":
@@ -147,10 +154,11 @@ class HybridRetriever:
             ]
         )
         if self._hierarchy_drill_down_enabled(plan):
-            drill_down_input_count = len(bm25_hits) + len(vector_hits) + len(supplemental_hits)
+            all_hits = list(bm25_hits) + list(vector_hits) + list(supplemental_hits)
+            drill_down_input_count = len(all_hits)
             drill_down_hits = self._hierarchy_drill_down_hits(
-                list(bm25_hits) + list(vector_hits) + list(supplemental_hits),
-                existing_ids={hit.chunk_id for hit in list(bm25_hits) + list(vector_hits) + list(supplemental_hits)},
+                all_hits,
+                existing_ids={hit.chunk_id for hit in all_hits},
                 plan=plan,
             )
             if drill_down_hits:
@@ -163,8 +171,8 @@ class HybridRetriever:
                     input_count=drill_down_input_count,
                     output_count=len(drill_down_hits),
                     metadata={
-                        "children_per_parent_limit": 3,
-                        "total_child_limit": 8,
+                        "children_per_parent_limit": HIERARCHY_CHILDREN_PER_PARENT_LIMIT,
+                        "total_child_limit": HIERARCHY_TOTAL_CHILD_LIMIT,
                     },
                 )
             )
@@ -197,11 +205,7 @@ class HybridRetriever:
     def _hierarchy_drill_down_hits(self, parent_hits: Sequence[object], existing_ids: set[str], plan: Optional[RetrievalPlan]) -> List[BM25Result]:
         if not self._hierarchy_drill_down_enabled(plan):
             return []
-        children_by_parent: Dict[str, List[object]] = {}
-        for chunk in self.bm25_store.chunks:
-            parent_id = chunk.metadata.get("parent_id")
-            if parent_id:
-                children_by_parent.setdefault(str(parent_id), []).append(chunk)
+        children_by_parent = self._get_children_by_parent()
         if not children_by_parent:
             return []
 
@@ -210,21 +214,33 @@ class HybridRetriever:
         parent_ids: list[str] = []
         for hit in parent_hits:
             metadata = getattr(hit, "metadata", {}) or {}
-            if metadata.get("chunk_type") not in {"section", "table"}:
+            if metadata.get("chunk_type") not in HIERARCHY_PARENT_CHUNK_TYPES:
                 continue
             parent_id = str(getattr(hit, "chunk_id", ""))
             if parent_id and parent_id not in parent_ids:
                 parent_ids.append(parent_id)
 
         for parent_id in parent_ids:
-            for child in children_by_parent.get(parent_id, [])[:3]:
+            for child in children_by_parent.get(parent_id, [])[:HIERARCHY_CHILDREN_PER_PARENT_LIMIT]:
                 if child.chunk_id in seen:
                     continue
-                results.append(BM25Store._to_result(child, 0.12))
+                results.append(BM25Store._to_result(child, HIERARCHY_DRILL_DOWN_SCORE))
                 seen.add(child.chunk_id)
-                if len(results) >= 8:
+                if len(results) >= HIERARCHY_TOTAL_CHILD_LIMIT:
                     return results
         return results
+
+    def _get_children_by_parent(self) -> Dict[str, List[object]]:
+        # 懒构建并缓存反向索引：避免每次 retrieve 都遍历全语料（14k+ chunks 时显著开销）。
+        if self._children_by_parent is not None:
+            return self._children_by_parent
+        index: Dict[str, List[object]] = {}
+        for chunk in self.bm25_store.chunks:
+            parent_id = chunk.metadata.get("parent_id")
+            if parent_id:
+                index.setdefault(str(parent_id), []).append(chunk)
+        self._children_by_parent = index
+        return index
 
     @staticmethod
     def _hierarchy_drill_down_enabled(plan: Optional[RetrievalPlan]) -> bool:

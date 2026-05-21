@@ -176,10 +176,13 @@ def _section_parent_chunks(
     return parents
 
 
+_SECTION_SUMMARY_CHAR_LIMIT = 700
+
+
 def _section_summary_content(title: str, children) -> str:
     body = "\n\n".join(chunk.content for chunk in children).strip()
-    if len(body) > 700:
-        body = body[:700].rstrip()
+    if len(body) > _SECTION_SUMMARY_CHAR_LIMIT:
+        body = body[:_SECTION_SUMMARY_CHAR_LIMIT].rstrip() + " …[truncated]"
     return f"Section: {title}\n\n{body}".strip()
 
 

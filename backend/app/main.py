@@ -1,6 +1,7 @@
 import logging
 import threading
-from typing import Union
+from contextlib import asynccontextmanager
+from typing import AsyncIterator, Union
 
 from fastapi import FastAPI
 
@@ -16,15 +17,16 @@ from app.core.retrieval.hybrid import HybridRetriever
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if get_settings().preload_retriever:
+        threading.Thread(target=_preload_default_retriever, name="finrag-retriever-preload", daemon=True).start()
+    yield
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name)
-
-    @app.on_event("startup")
-    def preload_default_retriever() -> None:
-        if not get_settings().preload_retriever:
-            return
-        threading.Thread(target=_preload_default_retriever, name="finrag-retriever-preload", daemon=True).start()
+    app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
     @app.get("/health")
     def health() -> dict[str, Union[str, bool]]:
