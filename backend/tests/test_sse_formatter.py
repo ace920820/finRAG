@@ -1,13 +1,20 @@
 from app.core.sse import format_sse_error, format_sse_event, format_sse_ping, split_markdown_chunks
 from app.models.events import QueryRewriteEvent
+from app.models.schemas import RetrievalPlan
 
 
 def test_sse_event_formatter_serializes_payloads():
-    payload = QueryRewriteEvent(original='a', expanded=['b'], sub_queries=['c'])
+    payload = QueryRewriteEvent(original='a', expanded=['b'], sub_queries=['c'], plan=RetrievalPlan(
+        original_query='a',
+        normalized_query='a',
+        intent='factual',
+        task_type='general_analysis',
+    ))
     event = format_sse_event('query_rewrite', payload)
 
     assert event.startswith('event: query_rewrite')
     assert '"original": "a"' in event
+    assert '"plan": {' in event
     assert event.endswith('\n\n')
 
 

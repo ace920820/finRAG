@@ -1,4 +1,5 @@
 from app.core.ingestion.fixture_loader import load_chunks
+from app.core.agent.query_analysis import analyze_query
 from app.core.providers.embeddings import MockEmbeddingProvider
 from app.core.retrieval.bm25_store import BM25Result
 from app.core.retrieval.hybrid import HybridRetriever
@@ -39,6 +40,49 @@ def test_rrf_fusion_is_deterministic():
     first = retriever.retrieve('贵州茅台 营业收入', top_k=20).fused_top20
     second = retriever.retrieve('贵州茅台 营业收入', top_k=20).fused_top20
     assert [item.chunk_id for item in first] == [item.chunk_id for item in second]
+
+
+def test_query_plan_routes_table_fact_first_for_nvidia_revenue():
+    retriever = HybridRetriever.from_chunks(load_chunks(), MockEmbeddingProvider())
+    rewrite, _ = analyze_query('英伟达2026年第三季度的总营收是多少？')
+    result = retriever.retrieve(rewrite.original, top_k=20, plan=rewrite.plan)
+
+    assert result.route == 'table_fact_first'
+    assert result.route_reason
+    assert result.fused_top20
+    assert any(item.metadata.get('chunk_type') == 'table_fact' for item in result.fused_top20)
+
+
+def test_query_plan_routes_research_report_analysis_for_catl_risk():
+    retriever = HybridRetriever.from_chunks(load_chunks(), MockEmbeddingProvider())
+    rewrite, _ = analyze_query('宁德时代近期有哪些潜在经营风险？')
+    result = retriever.retrieve(rewrite.original, top_k=20, plan=rewrite.plan)
+
+    assert result.route == 'research_report_analysis'
+    assert result.route_reason
+    assert result.fused_top20
+
+
+def test_query_plan_routes_financial_report_first_for_company_filing_lookup():
+    retriever = HybridRetriever.from_chunks(load_chunks(), MockEmbeddingProvider())
+    rewrite, _ = analyze_query('台积电2026Q3财报营收')
+    result = retriever.retrieve(rewrite.original, top_k=20, plan=rewrite.plan)
+
+    assert result.route == 'financial_report_first'
+    assert result.route_reason
+    assert result.fused_top20
+
+
+def test_metadata_filters_relax_when_too_narrow(monkeypatch):
+    retriever = HybridRetriever.from_chunks(load_chunks(), MockEmbeddingProvider())
+    rewrite, _ = analyze_query('英伟达 November 19 2025 revenue')
+    rewrite.plan.filters['collection'] = 'nonexistent'
+    result = retriever.retrieve(rewrite.original, top_k=20, plan=rewrite.plan)
+
+    assert result.filters_relaxed is True
+    assert result.filter_fallback_reason
+    assert result.filter_before_count is not None
+    assert result.filter_after_count is not None
 
 
 def test_nvidia_fy2026_q3_revenue_query_retrieves_income_statement(monkeypatch):

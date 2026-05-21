@@ -17,6 +17,13 @@ class DebugRetrievalRequest(BaseModel):
 class DebugRetrievalResponse(BaseModel):
     retrieval_complete: RetrievalCompleteEvent
     rerank_complete: RerankCompleteEvent
+    route: Optional[str] = None
+    route_reason: Optional[str] = None
+    applied_filters: dict[str, object] = Field(default_factory=dict)
+    filter_before_count: Optional[int] = None
+    filter_after_count: Optional[int] = None
+    filters_relaxed: bool = False
+    filter_fallback_reason: Optional[str] = None
     degraded: bool = False
     fallback_reason: Optional[str] = None
 
@@ -37,6 +44,13 @@ def debug_retrieval(request: DebugRetrievalRequest) -> DebugRetrievalResponse:
             fallback_reason=rerank.fallback_reason,
             score_source=rerank.score_source,
         ),
+        route=getattr(retrieval, "route", None),
+        route_reason=getattr(retrieval, "route_reason", None),
+        applied_filters=dict(getattr(retrieval, "applied_filters", {}) or {}),
+        filter_before_count=getattr(retrieval, "filter_before_count", None),
+        filter_after_count=getattr(retrieval, "filter_after_count", None),
+        filters_relaxed=getattr(retrieval, "filters_relaxed", False),
+        filter_fallback_reason=getattr(retrieval, "filter_fallback_reason", None),
         degraded=rerank.degraded,
         fallback_reason=rerank.fallback_reason,
     )

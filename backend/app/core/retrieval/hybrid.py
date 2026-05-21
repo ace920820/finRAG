@@ -6,12 +6,15 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 
 from app.core.config import get_settings
+from app.core.retrieval.filters import MetadataFilterResult, apply_metadata_filters, build_metadata_filters
+from app.core.retrieval.router import RouteDecision, choose_route
 from app.core.providers.embeddings import build_embedding_provider
 from app.core.retrieval.bm25_store import BM25Result, BM25Store
 from app.core.retrieval.index_store import RetrievalIndexStore
 from app.core.retrieval.table_facts import is_table_fact_period_compatible, is_table_metric_query, query_table_facts
 from app.core.retrieval.vector_store import VectorResult, VectorStore
 from app.models.schemas import RetrievalResultItem
+from app.models.schemas import RetrievalPlan
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,13 @@ class HybridRetrievalResult:
     fused_top20: List[RetrievalResultItem]
     bm25_error: Optional[str] = None
     vector_error: Optional[str] = None
+    route: Optional[str] = None
+    route_reason: Optional[str] = None
+    applied_filters: dict[str, object] = None
+    filter_before_count: Optional[int] = None
+    filter_after_count: Optional[int] = None
+    filters_relaxed: bool = False
+    filter_fallback_reason: Optional[str] = None
 
 
 class HybridRetriever:
@@ -44,8 +54,10 @@ class HybridRetriever:
         index_store = RetrievalIndexStore.load_or_build()
         return cls(index_store.bm25_store, index_store.vector_store, rrf_k=get_settings().rrf_k)
 
-    def retrieve(self, query: str, top_k: Optional[int] = None) -> HybridRetrievalResult:
+    def retrieve(self, query: str, top_k: Optional[int] = None, plan: Optional[RetrievalPlan] = None) -> HybridRetrievalResult:
         limit = top_k or self.settings.retrieval_top_k
+        route_decision: RouteDecision = choose_route(plan, query)
+        metadata_filters = build_metadata_filters(plan)
         bm25_hits: List[BM25Result] = []
         vector_hits: List[VectorResult] = []
         bm25_error: Optional[str] = None
@@ -66,6 +78,12 @@ class HybridRetriever:
         except Exception:
             logger.exception("supplemental hits failed")
             supplemental_hits = []
+        filtered_bm25 = apply_metadata_filters(bm25_hits, metadata_filters, minimum_count=1)
+        filtered_vector = apply_metadata_filters(vector_hits, metadata_filters, minimum_count=1)
+        filtered_supplemental = apply_metadata_filters(supplemental_hits, metadata_filters, minimum_count=1)
+        bm25_hits = list(filtered_bm25.filtered_items)
+        vector_hits = list(filtered_vector.filtered_items)
+        supplemental_hits = list(filtered_supplemental.filtered_items)
         fused_hits = self._rrf_fuse(query, bm25_hits, vector_hits, supplemental_hits, top_k=limit)
         return HybridRetrievalResult(
             bm25_results=[self._to_result(hit, rank + 1) for rank, hit in enumerate(bm25_hits)],
@@ -73,6 +91,13 @@ class HybridRetriever:
             fused_top20=[self._to_result(hit, rank + 1) for rank, hit in enumerate(fused_hits)],
             bm25_error=bm25_error,
             vector_error=vector_error,
+            route=route_decision.route,
+            route_reason=route_decision.reason,
+            applied_filters=filtered_bm25.filters or metadata_filters,
+            filter_before_count=max(filtered_bm25.before_count, filtered_vector.before_count, filtered_supplemental.before_count),
+            filter_after_count=max(filtered_bm25.after_count, filtered_vector.after_count, filtered_supplemental.after_count),
+            filters_relaxed=filtered_bm25.relaxed or filtered_vector.relaxed or filtered_supplemental.relaxed,
+            filter_fallback_reason=filtered_bm25.fallback_reason or filtered_vector.fallback_reason or filtered_supplemental.fallback_reason,
         )
 
     def _rrf_fuse(

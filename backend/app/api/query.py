@@ -35,7 +35,7 @@ def query(request: QueryRequest) -> StreamingResponse:
             try:
                 logger.info("retrieval started")
                 retriever = HybridRetriever.load_default()
-                retrieval_result = retriever.retrieve(retrieval_query(rewrite))
+                retrieval_result = retriever.retrieve(retrieval_query(rewrite), plan=rewrite.plan)
                 logger.info(
                     "retrieval complete bm25=%d vector=%d fused=%d",
                     len(retrieval_result.bm25_results),

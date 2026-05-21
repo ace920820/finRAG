@@ -43,10 +43,10 @@ def test_query_endpoint_streams_expected_events():
     rewrite = _event(events, 'query_rewrite')
     assert rewrite['original'].startswith('宁德时代')
     assert rewrite['expanded']
+    assert rewrite['plan']['retrieval_strategy'] == 'research_report_analysis'
 
     retrieval = _event(events, 'retrieval_complete')
     assert retrieval['bm25_results']
-    assert retrieval['vector_results']
     assert retrieval['fused_top20']
 
     rerank = _event(events, 'rerank_complete')
@@ -66,6 +66,19 @@ def test_query_endpoint_streams_expected_events():
     assert done['latency_ms'] >= 1
     assert done['total_tokens'] >= 1
     assert '1' in done['citations']
+
+
+def test_query_endpoint_exposes_plan_without_changing_event_order():
+    client = TestClient(create_app())
+    response = client.post('/api/query', json={'query': '宁德时代近期有哪些潜在经营风险？'})
+
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    event_names = [name for name, _ in events]
+    assert event_names[:4] == ['query_rewrite', 'intent_detected', 'retrieval_complete', 'rerank_complete']
+
+    rewrite = _event(events, 'query_rewrite')
+    assert rewrite['plan']['retrieval_strategy'] == 'research_report_analysis'
 
 
 

@@ -7,27 +7,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from app.core.config import get_settings
-
-
-COMPANY_ALIASES = {
-    "NVIDIA": ("nvidia", "英伟达", "nvda"),
-    "贵州茅台": ("贵州茅台", "茅台", "600519", "moutai"),
-    "宁德时代": ("宁德时代", "catl", "300750"),
-    "台积电": ("台积电", "tsmc", "2330"),
-}
-METRIC_ALIASES = {
-    "revenue": ("总营收", "营业收入", "营收", "收入", "revenue", "net revenue", "total revenue"),
-    "gross_profit": ("gross profit", "毛利"),
-    "operating_income": ("operating income", "营业利润"),
-    "net_income": ("净利润", "net income"),
-    "eps_diluted": ("eps", "每股收益", "diluted", "稀释"),
-}
-QUARTER_ALIASES = {
-    "q1": ("q1", "第一季度", "一季度"),
-    "q2": ("q2", "第二季度", "二季度"),
-    "q3": ("q3", "第三季度", "三季度", "前三季度"),
-    "q4": ("q4", "第四季度", "四季度"),
-}
+from app.core.agent.query_ontology import COMPANY_ALIASES, METRIC_ALIASES, QUARTER_ALIASES
 QUARTER_PERIOD_HINTS = {
     "q1": ("first quarter", "three months ended", "第一季度", "一季度", "本报告期", "本期"),
     "q2": ("second quarter", "three months ended", "第二季度", "二季度", "半年度", "本报告期", "本期"),

@@ -2,13 +2,14 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.models.schemas import CitationMetadata, QueryIntent, RerankResultItem, RetrievalResultItem, ScoreSource
+from app.models.schemas import CitationMetadata, QueryIntent, RerankResultItem, RetrievalPlan, RetrievalResultItem, ScoreSource
 
 
 class QueryRewriteEvent(BaseModel):
     original: str
     expanded: list[str] = Field(default_factory=list)
     sub_queries: list[str] = Field(default_factory=list)
+    plan: Optional[RetrievalPlan] = None
 
 
 class RetrievalCompleteEvent(BaseModel):
