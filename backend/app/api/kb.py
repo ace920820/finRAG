@@ -13,6 +13,7 @@ from app.core.config import get_settings
 from app.core.ingestion.fixture_loader import _processed_dir, chunk_counts_by_doc_id, load_chunks, load_documents
 from app.core.ingestion.raw_loader import discover_raw_inputs
 from app.core.ingestion.corpus_importer import ImportDefaults, import_corpus
+from app.core.retrieval.hybrid import clear_default_retriever_cache
 from app.core.retrieval.index_store import RetrievalIndexStore
 from app.models.schemas import (
     KBChunkSummary,
@@ -310,6 +311,7 @@ def _rebuild_index() -> None:
     _processed_dir.cache_clear()
     index_store = RetrievalIndexStore.load_or_build(force_rebuild=True)
     index_store.save()
+    clear_default_retriever_cache()
 
 
 def _safe_name(value: str) -> str:

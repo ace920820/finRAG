@@ -2,8 +2,10 @@ import subprocess
 from pathlib import Path
 
 from app.core.ingestion.fixture_loader import load_chunks
+from app.core.config import get_settings
 from app.core.providers.embeddings import MockEmbeddingProvider
 from app.core.retrieval.bm25_store import BM25Store
+from app.core.retrieval.index_store import RetrievalIndexStore
 from app.core.retrieval.vector_store import VectorStore
 
 
@@ -27,3 +29,25 @@ def test_build_index_script_creates_artifacts():
     index_dir = backend_dir / 'app' / 'data' / 'index'
     assert (index_dir / 'bm25_index.json').exists()
     assert (index_dir / 'vector_index.json').exists()
+
+
+def test_existing_vector_index_dimension_mismatch_does_not_rebuild(monkeypatch, tmp_path):
+    chunk = load_chunks()[0]
+    index_dir = tmp_path / "index"
+    bm25 = BM25Store.from_chunks([chunk])
+    vector = VectorStore.from_chunks([chunk], MockEmbeddingProvider(dimension=8))
+    vector.save(index_dir)
+    RetrievalIndexStore._save_bm25(index_dir, bm25)
+    monkeypatch.setenv("FINRAG_INDEX_DIR", str(index_dir))
+    monkeypatch.setenv("FINRAG_EMBEDDING_PROVIDER", "silicon")
+    get_settings.cache_clear()
+
+    class ExplodingProvider:
+        def embed_texts(self, texts):
+            raise AssertionError("query-time index load must not rebuild vectors")
+
+    monkeypatch.setattr("app.core.retrieval.index_store.build_embedding_provider", lambda: ExplodingProvider())
+
+    index_store = RetrievalIndexStore.load_or_build()
+
+    assert index_store.vector_store.dimension == 8

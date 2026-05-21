@@ -116,6 +116,8 @@ def test_kb_reindex(client, tmp_path, monkeypatch):
     monkeypatch.setenv("FINRAG_INDEX_DIR", str(index_dir))
     get_settings.cache_clear()
     _processed_dir.cache_clear()
+    cache_clears = []
+    monkeypatch.setattr("app.api.kb.clear_default_retriever_cache", lambda: cache_clears.append("clear"))
 
     response = client.post("/api/kb/reindex")
 
@@ -123,6 +125,7 @@ def test_kb_reindex(client, tmp_path, monkeypatch):
     assert response.json()["status"] == "completed"
     assert (index_dir / "bm25_index.json").exists()
     assert (index_dir / "vector_index.json").exists()
+    assert cache_clears == ["clear"]
 
     get_settings.cache_clear()
     _processed_dir.cache_clear()

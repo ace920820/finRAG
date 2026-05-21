@@ -17,13 +17,17 @@ def _force_mock_providers(monkeypatch):
     monkeypatch.setenv("FINRAG_EMBEDDING_PROVIDER", "mock")
     monkeypatch.setenv("FINRAG_RERANK_PROVIDER", "mock")
     monkeypatch.setenv("FINRAG_TEXT_PROVIDER", "mock")
+    monkeypatch.setenv("FINRAG_PRELOAD_RETRIEVER", "false")
     monkeypatch.setenv("FINRAG_MODEL_API_KEY", "")
     monkeypatch.setenv("FINRAG_EMBEDDING_API_KEY", "")
     monkeypatch.setenv("FINRAG_RERANK_API_KEY", "")
     monkeypatch.setenv("FINRAG_LLM_API_KEY", "")
     from app.core.config import get_settings
+    from app.core.retrieval.hybrid import clear_default_retriever_cache
     get_settings.cache_clear()
+    clear_default_retriever_cache()
     yield
+    clear_default_retriever_cache()
     get_settings.cache_clear()
 
 

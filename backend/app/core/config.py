@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     rerank_top_k: int = 5
     rrf_k: int = 60
     provider_timeout_seconds: float = 15.0
+    preload_retriever: bool = True
 
     model_config = SettingsConfigDict(
         env_file=".env",

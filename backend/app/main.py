@@ -1,3 +1,5 @@
+import logging
+import threading
 from typing import Union
 
 from fastapi import FastAPI
@@ -8,11 +10,21 @@ from app.api.kb import router as kb_router
 from app.api.query import router as query_router
 from app.api.preview_rewrite import router as preview_rewrite_router
 from app.core.config import get_settings
+from app.core.retrieval.hybrid import HybridRetriever
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name)
+
+    @app.on_event("startup")
+    def preload_default_retriever() -> None:
+        if not get_settings().preload_retriever:
+            return
+        threading.Thread(target=_preload_default_retriever, name="finrag-retriever-preload", daemon=True).start()
 
     @app.get("/health")
     def health() -> dict[str, Union[str, bool]]:
@@ -32,3 +44,11 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+
+def _preload_default_retriever() -> None:
+    try:
+        HybridRetriever.load_default()
+        logger.info("default retriever preloaded")
+    except Exception:
+        logger.exception("default retriever preload failed")

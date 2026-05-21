@@ -23,21 +23,19 @@ class RetrievalIndexStore:
         index_dir.mkdir(parents=True, exist_ok=True)
         bm25_path = index_dir / "bm25_index.json"
         vector_path = index_dir / "vector_index.json"
-        chunks = load_active_chunks()
+        chunks = None
         bm25_store = cls._load_bm25(index_dir) if bm25_path.exists() and not force_rebuild else None
         if bm25_store is None:
+            chunks = load_active_chunks()
             bm25_store = BM25Store.from_chunks(chunks)
         if vector_path.exists() and not force_rebuild:
             vector_store = VectorStore.load(index_dir)
             if vector_store is None:
+                chunks = chunks or load_active_chunks()
                 embedding_provider = build_embedding_provider()
                 vector_store = VectorStore.from_chunks(chunks, embedding_provider)
-            else:
-                embedding_provider = build_embedding_provider()
-                expected_dimension = len(embedding_provider.embed_texts(["probe"])[0])
-                if vector_store.dimension and vector_store.dimension != expected_dimension:
-                    vector_store = VectorStore.from_chunks(chunks, embedding_provider)
         else:
+            chunks = chunks or load_active_chunks()
             embedding_provider = build_embedding_provider()
             vector_store = VectorStore.from_chunks(chunks, embedding_provider)
         if force_rebuild or not bm25_path.exists():

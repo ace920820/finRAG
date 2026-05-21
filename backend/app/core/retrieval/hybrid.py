@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence
 
@@ -18,6 +19,8 @@ from app.models.schemas import RetrievalPlan
 
 
 logger = logging.getLogger(__name__)
+_default_retriever_lock = threading.Lock()
+_default_retriever: Optional["HybridRetriever"] = None
 
 
 @dataclass(frozen=True)
@@ -52,8 +55,11 @@ class HybridRetriever:
 
     @classmethod
     def load_default(cls) -> "HybridRetriever":
-        index_store = RetrievalIndexStore.load_or_build()
-        return cls(index_store.bm25_store, index_store.vector_store, rrf_k=get_settings().rrf_k)
+        return _load_default_retriever()
+
+    @classmethod
+    def clear_default_cache(cls) -> None:
+        clear_default_retriever_cache()
 
     def retrieve(self, query: str, top_k: Optional[int] = None, plan: Optional[RetrievalPlan] = None) -> HybridRetrievalResult:
         limit = top_k or self.settings.retrieval_top_k
@@ -374,3 +380,21 @@ class HybridRetriever:
 def _date_from_source(source_name: str) -> str:
     match = re.search(r"(20\d{2}-\d{2}-\d{2})", source_name)
     return match.group(1) if match else "unknown"
+
+
+def _load_default_retriever() -> HybridRetriever:
+    global _default_retriever
+    if _default_retriever is not None:
+        return _default_retriever
+    with _default_retriever_lock:
+        if _default_retriever is not None:
+            return _default_retriever
+        index_store = RetrievalIndexStore.load_or_build()
+        _default_retriever = HybridRetriever(index_store.bm25_store, index_store.vector_store, rrf_k=get_settings().rrf_k)
+        return _default_retriever
+
+
+def clear_default_retriever_cache() -> None:
+    global _default_retriever
+    with _default_retriever_lock:
+        _default_retriever = None
