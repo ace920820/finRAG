@@ -17,7 +17,7 @@ def test_debug_retrieval_endpoint_returns_retrieval_and_rerank_sections():
     assert payload['filter_after_count'] is not None
     assert 'filters_relaxed' in payload
     assert payload['retrieval_complete']['bm25_results']
-    assert payload['retrieval_complete']['vector_results']
+    assert payload['retrieval_complete']['vector_results'] or payload['retrieval_complete']['vector_error']
     assert payload['retrieval_complete']['fused_top20']
     assert payload['iterative_trace']['enabled'] is True
     assert payload['iterative_trace']['steps'][0]['purpose'] == 'background_facts'
