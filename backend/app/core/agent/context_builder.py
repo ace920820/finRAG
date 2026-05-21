@@ -52,7 +52,7 @@ def _pack_item(item: object, text_limit: int) -> EvidencePackItem:
     preserved_fields = _preserved_fields(item, metadata)
     compact_content = _compact_table_fact(preserved_fields) if metadata.get("chunk_type") == "table_fact" else _compact_text(content, text_limit)
     return EvidencePackItem(
-        citation_id=int(getattr(item, "citation_id")),
+        citation_id=int(getattr(item, "citation_id", 0)),
         chunk_id=str(getattr(item, "chunk_id")),
         title=str(getattr(item, "title")),
         doc_type=str(getattr(item, "doc_type")),

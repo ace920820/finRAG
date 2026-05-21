@@ -112,15 +112,6 @@ class HybridRetriever:
         cascade_trace.extend(
             [
                 RetrievalCascadeStage(
-                    name="metadata_filter",
-                    method="metadata_pre_filter",
-                    input_count=filter_before_count,
-                    output_count=filter_after_count,
-                    degraded=filters_relaxed,
-                    fallback_reason=filter_fallback_reason,
-                    metadata={"applied_filters": dict(applied_filters or {})},
-                ),
-                RetrievalCascadeStage(
                     name="coarse_recall",
                     method="bm25+vector+supplemental",
                     input_count=1,
@@ -133,6 +124,18 @@ class HybridRetriever:
                         "supplemental_count": raw_supplemental_count,
                         "bm25_error": bm25_error,
                         "vector_error": vector_error,
+                    },
+                ),
+                RetrievalCascadeStage(
+                    name="metadata_filter",
+                    method="metadata_post_recall_filter",
+                    input_count=filter_before_count,
+                    output_count=filter_after_count,
+                    degraded=filters_relaxed,
+                    fallback_reason=filter_fallback_reason,
+                    metadata={
+                        "applied_at": "post_recall",
+                        "applied_filters": dict(applied_filters or {}),
                     },
                 ),
             ]

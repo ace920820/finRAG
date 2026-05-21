@@ -109,6 +109,22 @@ def test_build_evidence_pack_handles_empty_evidence():
     assert pack.items == []
 
 
+def test_build_evidence_pack_defaults_missing_citation_id():
+    class MinimalItem:
+        chunk_id = "chunk-without-citation"
+        title = "Minimal"
+        doc_type = "research_report"
+        company = "NVIDIA"
+        date = "2026-01-01"
+        page = None
+        content = "content"
+        metadata = {}
+
+    pack = build_evidence_pack([MinimalItem()])
+
+    assert pack.items[0].citation_id == 0
+
+
 def test_generation_prompt_uses_compact_evidence_content():
     long_content = "风险因素 " * 300
     item = _item(chunk_id="risk-2", content=long_content, metadata={"source": "risk.pdf"})

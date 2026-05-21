@@ -10,6 +10,7 @@ from app.core.agent.generator import AnswerGenerator
 from app.core.agent.query_analysis import analyze_query
 from app.core.retrieval.hybrid import HybridRetriever
 from app.core.retrieval.rerank_service import RerankService
+from app.core.retrieval.trace import rerank_trace
 from app.models.events import DoneEvent, IntentDetectedEvent, QueryRewriteEvent, RerankCompleteEvent, RetrievalCompleteEvent
 from app.models.schemas import CitationMetadata, QueryRequest
 
@@ -48,7 +49,11 @@ class QueryWorkflow:
         evidence_pack = None
         try:
             logger.info("retrieval started")
-            retrieval_result = self.retriever.retrieve(retrieval_query(rewrite))
+            query_text = retrieval_query(rewrite)
+            try:
+                retrieval_result = self.retriever.retrieve(query_text, plan=rewrite.plan)
+            except TypeError:
+                retrieval_result = self.retriever.retrieve(query_text)
             logger.info(
                 "retrieval complete bm25=%d vector=%d fused=%d",
                 len(retrieval_result.bm25_results),
@@ -61,19 +66,27 @@ class QueryWorkflow:
                 fused_top20=retrieval_result.fused_top20,
                 bm25_error=getattr(retrieval_result, "bm25_error", None),
                 vector_error=getattr(retrieval_result, "vector_error", None),
+                cascade_trace=list(getattr(retrieval_result, "cascade_trace", []) or []),
             )
             logger.info("rerank started candidates=%d", len(retrieval_result.fused_top20))
             rerank_result = self.rerank_service.rerank(request.query, retrieval_result.fused_top20)
             logger.info("rerank complete top=%d degraded=%s", len(rerank_result.top5), rerank_result.degraded)
+            evidence_pack = build_evidence_pack(rerank_result.top5)
             rerank = RerankCompleteEvent(
                 top5=rerank_result.top5,
                 degraded=rerank_result.degraded,
                 fallback_reason=rerank_result.fallback_reason,
                 score_source=rerank_result.score_source,
+                cascade_trace=rerank_trace(
+                    len(retrieval_result.fused_top20),
+                    len(rerank_result.top5),
+                    rerank_result.degraded,
+                    rerank_result.fallback_reason,
+                    evidence_pack=evidence_pack,
+                ),
             )
             degraded = rerank_result.degraded
             fallback_reason = rerank_result.fallback_reason
-            evidence_pack = build_evidence_pack(rerank_result.top5)
             evidence = evidence_pack.items
         except Exception as exc:
             logger.exception("query retrieval/rerank failed")

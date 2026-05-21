@@ -63,6 +63,8 @@ def query(request: QueryRequest) -> StreamingResponse:
                 logger.info("rerank started candidates=%d", len(retrieval_result.fused_top20))
                 rerank_result = RerankService().rerank(request.query, retrieval_result.fused_top20)
                 logger.info("rerank complete top=%d degraded=%s", len(rerank_result.top5), rerank_result.degraded)
+                evidence_pack = build_evidence_pack(rerank_result.top5)
+                evidence = evidence_pack.items
                 rerank = RerankCompleteEvent(
                     top5=rerank_result.top5,
                     degraded=rerank_result.degraded,
@@ -73,10 +75,9 @@ def query(request: QueryRequest) -> StreamingResponse:
                         len(rerank_result.top5),
                         rerank_result.degraded,
                         rerank_result.fallback_reason,
+                        evidence_pack=evidence_pack,
                     ),
                 )
-                evidence_pack = build_evidence_pack(rerank_result.top5)
-                evidence = evidence_pack.items
                 yield format_sse_event("rerank_complete", rerank)
                 rerank_emitted = True
             except Exception as exc:

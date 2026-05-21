@@ -50,14 +50,20 @@ def test_query_endpoint_streams_expected_events():
     assert retrieval['fused_top20']
     assert [stage['name'] for stage in retrieval['cascade_trace']] == [
         'query_plan',
-        'metadata_filter',
         'coarse_recall',
+        'metadata_filter',
         'fusion',
     ]
+    metadata_filter = next(stage for stage in retrieval['cascade_trace'] if stage['name'] == 'metadata_filter')
+    assert metadata_filter['metadata']['applied_at'] == 'post_recall'
 
     rerank = _event(events, 'rerank_complete')
     assert rerank['top5']
     assert [stage['name'] for stage in rerank['cascade_trace']] == ['rerank', 'final_evidence']
+    final_evidence = rerank['cascade_trace'][-1]
+    assert final_evidence['input_count'] == len(rerank['top5'])
+    assert final_evidence['output_count'] <= final_evidence['input_count']
+    assert 'dropped_duplicate_count' in final_evidence['metadata']
     assert rerank['degraded'] is False
     assert rerank['score_source'] == 'mock'
     assert rerank['top5'][0]['citation_id'] == 1
@@ -158,6 +164,7 @@ def test_query_endpoint_returns_table_fact_metadata_for_nvidia_revenue(monkeypat
     rerank = _event(events, 'rerank_complete')
     top = rerank['top5'][0]
     assert [stage['name'] for stage in rerank['cascade_trace']] == ['rerank', 'final_evidence']
+    assert rerank['cascade_trace'][-1]['metadata']['compressed_count'] == 1
     assert top['metadata']['chunk_type'] == 'table_fact'
     assert top['metadata']['metric'] == 'revenue'
     assert top['metadata']['raw_value'] == '57,006'

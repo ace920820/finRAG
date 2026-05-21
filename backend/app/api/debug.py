@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.core.agent.context_builder import build_evidence_pack
 from app.core.agent.query_analysis import analyze_query
 from app.core.retrieval.hybrid import HybridRetriever
 from app.core.retrieval.rerank_service import RerankService
@@ -38,7 +39,14 @@ def debug_retrieval(request: DebugRetrievalRequest) -> DebugRetrievalResponse:
     retrieval = HybridRetriever.load_default().retrieve(request.query, plan=rewrite.plan)
     rerank = RerankService().rerank(request.query, retrieval.fused_top20)
     retrieval_trace = list(getattr(retrieval, "cascade_trace", []) or [])
-    rerank_stages = rerank_trace(len(retrieval.fused_top20), len(rerank.top5), rerank.degraded, rerank.fallback_reason)
+    evidence_pack = build_evidence_pack(rerank.top5)
+    rerank_stages = rerank_trace(
+        len(retrieval.fused_top20),
+        len(rerank.top5),
+        rerank.degraded,
+        rerank.fallback_reason,
+        evidence_pack=evidence_pack,
+    )
     cascade_trace = retrieval_trace + rerank_stages
     return DebugRetrievalResponse(
         retrieval_complete=RetrievalCompleteEvent(

@@ -52,7 +52,7 @@ def test_query_plan_routes_table_fact_first_for_nvidia_revenue():
     assert result.fused_top20
     assert any(item.metadata.get('chunk_type') == 'table_fact' for item in result.fused_top20)
     stage_names = [stage.name for stage in result.cascade_trace]
-    assert stage_names[:4] == ['query_plan', 'metadata_filter', 'coarse_recall', 'fusion']
+    assert stage_names[:4] == ['query_plan', 'coarse_recall', 'metadata_filter', 'fusion']
     assert all(stage.method and stage.input_count is not None and stage.output_count is not None for stage in result.cascade_trace)
 
 
@@ -89,6 +89,7 @@ def test_metadata_filters_relax_when_too_narrow(monkeypatch):
     metadata_filter = next(stage for stage in result.cascade_trace if stage.name == 'metadata_filter')
     assert metadata_filter.degraded is True
     assert metadata_filter.fallback_reason
+    assert metadata_filter.metadata['applied_at'] == 'post_recall'
 
 
 def test_string_only_retrieval_returns_cascade_trace():
@@ -96,7 +97,7 @@ def test_string_only_retrieval_returns_cascade_trace():
     result = retriever.retrieve('宁德时代 经营风险', top_k=20)
 
     stage_names = [stage.name for stage in result.cascade_trace]
-    assert stage_names == ['query_plan', 'metadata_filter', 'coarse_recall', 'fusion']
+    assert stage_names == ['query_plan', 'coarse_recall', 'metadata_filter', 'fusion']
     coarse_recall = next(stage for stage in result.cascade_trace if stage.name == 'coarse_recall')
     assert coarse_recall.metadata['bm25_count'] >= 0
     assert coarse_recall.metadata['vector_count'] >= 0

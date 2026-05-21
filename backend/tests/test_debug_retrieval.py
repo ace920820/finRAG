@@ -22,12 +22,17 @@ def test_debug_retrieval_endpoint_returns_retrieval_and_rerank_sections():
     assert payload['rerank_complete']['top5']
     assert [stage['name'] for stage in payload['cascade_trace']] == [
         'query_plan',
-        'metadata_filter',
         'coarse_recall',
+        'metadata_filter',
         'fusion',
         'rerank',
         'final_evidence',
     ]
+    metadata_filter = next(stage for stage in payload['cascade_trace'] if stage['name'] == 'metadata_filter')
+    assert metadata_filter['metadata']['applied_at'] == 'post_recall'
+    final_evidence = payload['cascade_trace'][-1]
+    assert final_evidence['output_count'] <= final_evidence['input_count']
+    assert 'dropped_duplicate_count' in final_evidence['metadata']
     assert payload['retrieval_complete']['cascade_trace']
     assert payload['rerank_complete']['cascade_trace']
     assert all('method' in stage and 'input_count' in stage and 'output_count' in stage for stage in payload['cascade_trace'])
