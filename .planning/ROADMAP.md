@@ -25,6 +25,7 @@ Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanc
 | 19 | Multi-stage Retrieval Cascade Trace | CASCADE-01, CASCADE-02, CASCADE-03, CASCADE-04 | Make retrieval an explicit cascade with observable stage trace from planning/filtering through recall, fusion, rerank, and final evidence. | SSE/debug include stage traces; representative query tests verify deterministic cascade outputs and fallback metadata. |
 | 20 | Evidence Compression And Context Builder | EVIDENCE-01, EVIDENCE-02, EVIDENCE-03, EVIDENCE-04 | Build compact evidence packs for generation that preserve facts, claims, citations, and table metadata while reducing context noise. | Context builder tests cover text/table evidence, dedupe, citation preservation, and table fact losslessness. |
 | 21 | Agentic Iterative Retrieval Demo Mode | ITER-01, ITER-02, ITER-03, ITER-04 | Add a lightweight multi-step retrieval mode for analytical/reasoning questions with visible retrieval purposes and fallback. | Reasoning queries produce step traces; simple factual queries stay single-pass; fallback path is tested. |
+| 21.1 | Frontend RAG Process Showcase For v1.4 Demo | SHOWCASE-01, SHOWCASE-02, SHOWCASE-03, SHOWCASE-04 | Add demo-oriented frontend panels and interactions that expose query planning, routing/filtering, cascade trace, evidence compression, and iterative retrieval steps before Phase 22. | Frontend type/build tests pass; representative queries visibly show intermediate RAG artifacts without breaking chat/citation flow. |
 | 22 | Hierarchical Chunking And Drill-down Retrieval | HIER-01, HIER-02, HIER-03, HIER-04 | Add hierarchy metadata and optional section/table-summary to child evidence retrieval after the safer routing/cascade layers are stable. | Reimport/reindex remains deterministic; hierarchy metadata is present; drill-down retrieval is covered without breaking old chunk consumers. |
 
 ## Phase Details
@@ -128,6 +129,33 @@ Plans:
 - Iterative retrieval falls back gracefully when planning or evidence collection fails.
 - SSE/debug traces expose iterative steps for demo explanation without requiring frontend redesign.
 
+### Phase 21.1: Frontend RAG Process Showcase For v1.4 Demo (INSERTED)
+
+**Purpose:** Make the v1.4 advanced RAG architecture visible in the chat UI for interview/demo use before continuing into hierarchy and drill-down retrieval.
+
+**Goal:** Add frontend display and interaction surfaces for the key intermediate artifacts produced by Phases 17-21: structured query plan, route/filter metadata, cascade trace, evidence selection/compression signals, and iterative retrieval steps.
+**Requirements**: SHOWCASE-01, SHOWCASE-02, SHOWCASE-03, SHOWCASE-04
+**Depends on:** Phase 21
+**Plans:** 0 plans
+
+**Likely files:**
+- `frontend/src/api/finrag.ts`
+- `frontend/src/types.ts`
+- `frontend/src/App.tsx`
+- `frontend/src/components/SidebarRight.tsx`
+- `frontend/src/components/ChatArea.tsx`
+- `frontend/src/components/*Trace*.tsx` or focused new display components if needed
+
+**Success criteria:**
+- The UI displays query understanding fields such as intent, task type, entities, metrics, retrieval strategy, expansions, and sub-queries.
+- The retrieval panel shows route choice, applied metadata filters, cascade stages, input/output counts, degradation/fallback status, and final evidence selection.
+- Iterative analytical/reasoning queries show each retrieval step's purpose, generated query, route/filter metadata, and selected evidence summaries.
+- Existing chat streaming, citation clicking, KB navigation, and simple factual/table QA flows remain usable.
+- The design is demo-oriented and information-rich rather than production-minimal; it should make intermediate processing legible during a walkthrough.
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 21.1 to break down)
+
 ### Phase 22: Hierarchical Chunking And Drill-down Retrieval
 
 **Purpose:** Add multi-scale retrieval after the safer architecture layers are in place.
@@ -171,13 +199,17 @@ Plans:
 | ITER-02 | Phase 21 | Pending |
 | ITER-03 | Phase 21 | Pending |
 | ITER-04 | Phase 21 | Pending |
+| SHOWCASE-01 | Phase 21.1 | Pending |
+| SHOWCASE-02 | Phase 21.1 | Pending |
+| SHOWCASE-03 | Phase 21.1 | Pending |
+| SHOWCASE-04 | Phase 21.1 | Pending |
 | HIER-01 | Phase 22 | Pending |
 | HIER-02 | Phase 22 | Pending |
 | HIER-03 | Phase 22 | Pending |
 | HIER-04 | Phase 22 | Pending |
 
-**Coverage:** 23 requirements mapped to 6 phases; unmapped requirements: 0.
+**Coverage:** 27 requirements mapped to 7 phases; unmapped requirements: 0.
 
 ## Next Action
 
-Plan Phase 17 — Structured Query Understanding And Retrieval Plan.
+Plan Phase 21.1 — Frontend RAG Process Showcase For v1.4 Demo.

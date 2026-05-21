@@ -4,27 +4,27 @@ milestone: v1.4
 milestone_name: Advanced RAG Retrieval Architecture
 status: planning
 last_updated: "2026-05-21T08:47:51Z"
-last_activity: 2026-05-21 -- Completed Phase 21 iterative retrieval demo mode
+last_activity: 2026-05-21 -- Inserted Phase 21.1 frontend RAG process showcase before Phase 22
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 4
   total_plans: 6
   completed_plans: 4
-  percent: 67
+  percent: 57
 ---
 
 # State: FinRAG
 
 **Initialized:** 2026-05-13
 **Current milestone:** v1.4 Advanced RAG Retrieval Architecture
-**Status:** Planning Phase 22
+**Status:** Planning Phase 21.1
 
 ## Current Position
 
-Phase: 22 (Hierarchical Chunking And Drill-down Retrieval) — READY TO PLAN
+Phase: 21.1 (Frontend RAG Process Showcase For v1.4 Demo) — READY TO PLAN
 Plan: 0 of 0
-Status: Phase 21 complete; ready to plan Phase 22
-Last activity: 2026-05-21 -- Completed Phase 21 iterative retrieval demo mode
+Status: Phase 21 complete; urgent inserted showcase phase ready to plan before Phase 22
+Last activity: 2026-05-21 -- Inserted Phase 21.1 frontend RAG process showcase before Phase 22
 
 ## Completed Milestones
 
@@ -50,12 +50,13 @@ Last activity: 2026-05-21 -- Completed Phase 21 iterative retrieval demo mode
 
 ## Next Action
 
-Plan Phase 22 — Hierarchical Chunking And Drill-down Retrieval.
+Plan Phase 21.1 — Frontend RAG Process Showcase For v1.4 Demo.
 
 ## Quick Tasks Completed
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-21 | phase-21.1-insert | Inserted frontend RAG process showcase phase before Phase 22 | Added a demo-focused phase for exposing v1.4 RAG intermediate artifacts in the frontend before hierarchy/drill-down work. |
 | 2026-05-21 | phase-21-iterative-retrieval | Completed Phase 21 iterative retrieval demo mode | Added deterministic multi-step retrieval for analytical/reasoning queries, additive iterative traces, single-pass fallback for factual/table QA, and verified 111 backend tests. |
 | 2026-05-21 | 260521-meg | Fix Phase 19/20 code review findings for retrieval plan propagation, evidence packing, and cascade trace | Passed plan through workflow retrieval, made evidence packing robust to missing citation ids, aligned cascade trace order, added evidence compression trace counts, and verified 102 backend tests. |
 | 2026-05-14 | frontend-markdown-citation-rendering | Fix frontend Markdown and citation rendering for mixed citation formats | Normalized model-emitted citation HTML/superscript/plain markers, removed invalid citation placeholders, and preserved clickable citation spans. |
@@ -69,6 +70,7 @@ Plan Phase 22 — Hierarchical Chunking And Drill-down Retrieval.
 
 | Date | Update | Result |
 | --- | --- | --- |
+| 2026-05-21 | phase-21.1-frontend-showcase | Inserted Phase 21.1 before Phase 22 to make v1.4 query planning, routing, cascade, evidence, and iterative retrieval artifacts visible in the demo UI. | Ready to discuss/plan. |
 | 2026-05-21 | milestone-v1.4-start | Started Advanced RAG Retrieval Architecture milestone with reordered phases: structured query understanding, routing/filtering, multi-stage cascade, evidence compression, iterative retrieval, hierarchical chunking. | Requirements and roadmap being defined. |
 | 2026-05-14 | phase-16-table-aware-qa | Completed table-aware retrieval, fact-backed numeric QA, and table citation metadata integration. | NVIDIA Q3 revenue returns `57,006` with table fact citations; backend regressions passed. |
 | 2026-05-14 | phase-15-table-chunking-facts | Added backend table/table_row chunk import and `table_facts.json`; validated 40 PDFs with 14091 chunks and 1558 facts. | Complete. |
