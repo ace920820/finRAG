@@ -19,6 +19,10 @@ def test_debug_retrieval_endpoint_returns_retrieval_and_rerank_sections():
     assert payload['retrieval_complete']['bm25_results']
     assert payload['retrieval_complete']['vector_results']
     assert payload['retrieval_complete']['fused_top20']
+    assert payload['iterative_trace']['enabled'] is True
+    assert payload['iterative_trace']['steps'][0]['purpose'] == 'background_facts'
+    assert payload['iterative_trace']['steps'][0]['route'] == 'research_report_analysis'
+    assert payload['retrieval_complete']['iterative_trace']['steps']
     assert payload['rerank_complete']['top5']
     assert [stage['name'] for stage in payload['cascade_trace']] == [
         'query_plan',

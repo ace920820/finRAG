@@ -2,7 +2,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.models.schemas import CitationMetadata, QueryIntent, RerankResultItem, RetrievalCascadeStage, RetrievalPlan, RetrievalResultItem, ScoreSource
+from app.models.schemas import CitationMetadata, IterativeRetrievalTrace, QueryIntent, RerankResultItem, RetrievalCascadeStage, RetrievalPlan, RetrievalResultItem, ScoreSource
 
 
 class QueryRewriteEvent(BaseModel):
@@ -19,6 +19,7 @@ class RetrievalCompleteEvent(BaseModel):
     bm25_error: Optional[str] = None
     vector_error: Optional[str] = None
     cascade_trace: list[RetrievalCascadeStage] = Field(default_factory=list)
+    iterative_trace: Optional[IterativeRetrievalTrace] = None
 
 
 class RerankCompleteEvent(BaseModel):

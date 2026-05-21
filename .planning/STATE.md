@@ -2,29 +2,29 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Advanced RAG Retrieval Architecture
-status: executing
-last_updated: "2026-05-21T04:49:25.551Z"
-last_activity: "2026-05-21 -- Completed quick task 260521-meg: fix Phase 19/20 code review findings for retrieval plan propagation, evidence packing, and cascade trace"
+status: planning
+last_updated: "2026-05-21T08:47:51Z"
+last_activity: 2026-05-21 -- Completed Phase 21 iterative retrieval demo mode
 progress:
   total_phases: 6
-  completed_phases: 0
-  total_plans: 1
-  completed_plans: 0
-  percent: 0
+  completed_phases: 4
+  total_plans: 6
+  completed_plans: 4
+  percent: 67
 ---
 
 # State: FinRAG
 
 **Initialized:** 2026-05-13
 **Current milestone:** v1.4 Advanced RAG Retrieval Architecture
-**Status:** Executing Phase 17
+**Status:** Planning Phase 22
 
 ## Current Position
 
-Phase: 17 (Structured Query Understanding And Retrieval Plan) — EXECUTING
-Plan: 1 of 1
-Status: Executing Phase 17
-Last activity: 2026-05-21 -- Completed quick task 260521-meg: fix Phase 19/20 code review findings for retrieval plan propagation, evidence packing, and cascade trace
+Phase: 22 (Hierarchical Chunking And Drill-down Retrieval) — READY TO PLAN
+Plan: 0 of 0
+Status: Phase 21 complete; ready to plan Phase 22
+Last activity: 2026-05-21 -- Completed Phase 21 iterative retrieval demo mode
 
 ## Completed Milestones
 
@@ -50,12 +50,13 @@ Last activity: 2026-05-21 -- Completed quick task 260521-meg: fix Phase 19/20 co
 
 ## Next Action
 
-Plan Phase 17 — Structured Query Understanding And Retrieval Plan.
+Plan Phase 22 — Hierarchical Chunking And Drill-down Retrieval.
 
 ## Quick Tasks Completed
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-21 | phase-21-iterative-retrieval | Completed Phase 21 iterative retrieval demo mode | Added deterministic multi-step retrieval for analytical/reasoning queries, additive iterative traces, single-pass fallback for factual/table QA, and verified 111 backend tests. |
 | 2026-05-21 | 260521-meg | Fix Phase 19/20 code review findings for retrieval plan propagation, evidence packing, and cascade trace | Passed plan through workflow retrieval, made evidence packing robust to missing citation ids, aligned cascade trace order, added evidence compression trace counts, and verified 102 backend tests. |
 | 2026-05-14 | frontend-markdown-citation-rendering | Fix frontend Markdown and citation rendering for mixed citation formats | Normalized model-emitted citation HTML/superscript/plain markers, removed invalid citation placeholders, and preserved clickable citation spans. |
 | 2026-05-14 | kb-settings-ui-polish | Add knowledge-base settings modal and align chat/KB headers | Added frontend-only KB settings dialog, unified chat header title/style, and reordered KB header actions. |

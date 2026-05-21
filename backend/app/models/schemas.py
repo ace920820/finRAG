@@ -28,6 +28,11 @@ RetrievalCascadeStageName = Literal[
     "rerank",
     "final_evidence",
 ]
+IterativeRetrievalStepPurpose = Literal[
+    "background_facts",
+    "risk_or_driver_evidence",
+    "cross_check",
+]
 
 
 class QueryEntity(BaseModel):
@@ -72,6 +77,26 @@ class RetrievalCascadeStage(BaseModel):
     degraded: bool = False
     fallback_reason: Optional[str] = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class IterativeRetrievalStep(BaseModel):
+    index: int
+    purpose: IterativeRetrievalStepPurpose
+    retrieval_query: str
+    route: Optional[str] = None
+    applied_filters: dict[str, Any] = Field(default_factory=dict)
+    selected_evidence_ids: list[str] = Field(default_factory=list)
+    selected_evidence: list[dict[str, Any]] = Field(default_factory=list)
+    cascade_trace: list[RetrievalCascadeStage] = Field(default_factory=list)
+    degraded: bool = False
+    fallback_reason: Optional[str] = None
+
+
+class IterativeRetrievalTrace(BaseModel):
+    enabled: bool = False
+    degraded: bool = False
+    fallback_reason: Optional[str] = None
+    steps: list[IterativeRetrievalStep] = Field(default_factory=list)
 
 
 class Document(BaseModel):
