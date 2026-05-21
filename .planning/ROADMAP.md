@@ -1,140 +1,178 @@
-# Roadmap: FinRAG v1.3 Knowledge Base Management
+# Roadmap: FinRAG v1.4 Advanced RAG Retrieval Architecture
 
-**Last updated:** 2026-05-14
-**Current status:** Phase 16 table-aware retrieval/QA complete; v1.3 ready for milestone review.
+**Last updated:** 2026-05-21  
+**Current status:** v1.4 initialized; ready to plan Phase 17.
 
 ## Shipped Milestones
 
 | Milestone | Name | Status | Phases | Summary | Archive |
 | --- | --- | --- | --- | --- | --- |
-| v1.0 | Mock-data MVP | Shipped | 1-5 | FastAPI backend, hybrid retrieval/rerank, SSE query API, React integration, preview rewrite, and mock-data demo readiness. | Prior phase artifacts in `.planning/phases/01-*` through `.planning/phases/05-*` |
+| v1.0 | Mock-data MVP | Shipped | 1-5 | FastAPI backend, hybrid retrieval/rerank, SSE query API, frontend integration, preview rewrite, and mock-data demo readiness. | Prior phase artifacts in `.planning/phases/01-*` through `.planning/phases/05-*` |
 | v1.1 | Document Import Pipeline | Shipped | 6-7 | PDF/text-layer extraction, raw Markdown artifacts, FinRAG corpus import, deterministic chunking, and retrieval index rebuild. | `.planning/milestones/v1.1-ROADMAP.md` |
 | v1.2 | Frontend Evidence Traceability & Interaction Polish | Complete | 8-10 | Real-corpus examples, document open action, retrieval panel polish, and per-turn evidence traceability. | Pending milestone archive |
+| v1.3 | Knowledge Base Management | Complete | 11-16 | Single-app KB management, import/reindex APIs, table-aware extraction/chunking/facts, and table-aware numeric QA. | Pending milestone archive |
 
 ## Current Milestone
 
-### v1.3 Knowledge Base Management
+### v1.4 Advanced RAG Retrieval Architecture
 
-Goal: Add a lightweight knowledge base management page and backend API surface for document import, indexing, and maintenance while keeping FinRAG as one frontend app.
+Goal: Upgrade FinRAG from a direct hybrid retrieval demo into a traceable advanced financial RAG architecture with structured query understanding, knowledge routing, metadata pre-filtering, multi-stage retrieval, evidence compression, iterative retrieval, and late-stage hierarchical chunking.
 
 | Phase | Name | Requirements | Goal | Validation |
 | --- | --- | --- | --- | --- |
-| 11 | Single-App Management Page Integration | REQ-v1.3-001, REQ-v1.3-007, REQ-v1.3-008 | Merge the external knowledge base manager React page into `frontend/` and add a chat-header entry without running a second frontend app. | ✓ Complete |
-| 12 | KB Backend API Foundation | REQ-v1.3-002, REQ-v1.3-003, REQ-v1.3-007, REQ-v1.3-008 | Implement `/api/kb/overview`, `/api/kb/documents`, and `/api/kb/documents/{doc_id}` over the existing processed corpus and chunk data. | ✓ Complete |
-| 13 | KB Import, Reindex, and Frontend联调 | REQ-v1.3-004, REQ-v1.3-005, REQ-v1.3-006, REQ-v1.3-007, REQ-v1.3-008 | Implement upload/import/job/reindex/maintenance APIs and wire the management page to real backend endpoints. | ✓ Complete |
-| 14 | Table-Aware PDF Extraction | REQ-v1.3-009, REQ-v1.3-010 | Extend PDF/raw extraction to emit structured table artifacts, table manifests, and table-aware raw metadata alongside existing text extraction. | Complete |
-| 15 | Table Chunking And Structured Facts | REQ-v1.3-010, REQ-v1.3-012 | Add `text`/`table`/`table_row`/`table_summary` chunk types and normalize core financial statement metrics into a local structured facts store. | Complete |
-| 16 | Table-Aware Retrieval And QA Integration | REQ-v1.3-011, REQ-v1.3-013, REQ-v1.3-007, REQ-v1.3-008 | Route numeric/metric questions through table-aware retrieval/facts, expose table evidence in citations/debug APIs, and verify financial table answers. | Complete |
+| 17 | Structured Query Understanding And Retrieval Plan | QUERY-01, QUERY-02, QUERY-03 | Replace ad-hoc query expansion with a structured retrieval plan while preserving existing rewrite/intent behavior. | Query plan tests cover factual metric lookup, analytical trend/risk, and reasoning questions; SSE/debug can expose plan data. |
+| 18 | Knowledge Routing And Metadata Pre-filtering | ROUTE-01, ROUTE-02, ROUTE-03, ROUTE-04 | Route queries to specialized retrieval paths and shrink candidate sets with metadata filters before expensive recall. | Numeric/table, financial-report, research-report, and general fallback routes are tested; debug shows route, filters, and counts. |
+| 19 | Multi-stage Retrieval Cascade Trace | CASCADE-01, CASCADE-02, CASCADE-03, CASCADE-04 | Make retrieval an explicit cascade with observable stage trace from planning/filtering through recall, fusion, rerank, and final evidence. | SSE/debug include stage traces; representative query tests verify deterministic cascade outputs and fallback metadata. |
+| 20 | Evidence Compression And Context Builder | EVIDENCE-01, EVIDENCE-02, EVIDENCE-03, EVIDENCE-04 | Build compact evidence packs for generation that preserve facts, claims, citations, and table metadata while reducing context noise. | Context builder tests cover text/table evidence, dedupe, citation preservation, and table fact losslessness. |
+| 21 | Agentic Iterative Retrieval Demo Mode | ITER-01, ITER-02, ITER-03, ITER-04 | Add a lightweight multi-step retrieval mode for analytical/reasoning questions with visible retrieval purposes and fallback. | Reasoning queries produce step traces; simple factual queries stay single-pass; fallback path is tested. |
+| 22 | Hierarchical Chunking And Drill-down Retrieval | HIER-01, HIER-02, HIER-03, HIER-04 | Add hierarchy metadata and optional section/table-summary to child evidence retrieval after the safer routing/cascade layers are stable. | Reimport/reindex remains deterministic; hierarchy metadata is present; drill-down retrieval is covered without breaking old chunk consumers. |
 
 ## Phase Details
 
-### Phase 11 — Single-App Management Page Integration
+### Phase 17 — Structured Query Understanding And Retrieval Plan
 
-**Purpose:** Consolidate the externally built management frontend into the existing FinRAG Vite app.
-
-**Likely files:**
-- `frontend/src/App.tsx`
-- `frontend/src/components/Header.tsx`
-- `frontend/src/pages/KnowledgeBaseManager.tsx`
-- `frontend/src/pages/knowledgeBaseTypes.ts`
-
-**Success criteria:**
-- Existing chat screen has a “知识库管理” button in the header.
-- Clicking it opens the manager page inside the same frontend runtime.
-- The manager page has a “返回对话” path back to the chat screen.
-- No second frontend dev server is required.
-
-### Phase 12 — KB Backend API Foundation
-
-**Purpose:** Provide read-only KB management APIs first, using the existing corpus outputs.
+**Purpose:** Convert query analysis from simple expansion into a structured planning layer that downstream retrieval can consume.
 
 **Likely files:**
-- `backend/app/api/kb.py`
-- `backend/app/main.py`
+- `backend/app/core/agent/query_analysis.py`
 - `backend/app/models/schemas.py`
-- `backend/app/core/ingestion/fixture_loader.py`
-- `backend/tests/test_kb_api.py`
+- `backend/app/models/events.py`
+- `backend/app/core/agent/workflow.py`
+- `backend/tests/test_query_analysis.py`
+- `backend/tests/test_query_api.py`
 
 **Success criteria:**
-- Overview returns total documents/chunks and status.
-- Document list supports basic search/filter parameters.
-- Document detail returns metadata and representative chunk summaries.
-- Existing `/api/documents` remains unchanged.
+- A query plan captures entities, intent, task type, metrics, time range, preferred document types, and retrieval strategy.
+- Existing query rewrite, alias expansion, intent detection, and SSE events remain backward compatible.
+- Tests cover NVIDIA revenue lookup, Moutai/CATL analytical questions, and at least one reasoning query.
+- The plan is simple and rule-based enough to stay deterministic under mock tests.
 
-### Phase 13 — KB Import, Reindex, and Frontend联调
+### Phase 18 — Knowledge Routing And Metadata Pre-filtering
 
-**Purpose:** Complete the management write flows and replace mock frontend data with real API calls.
+**Purpose:** Avoid searching the full corpus when the query plan can narrow the search space first.
 
 **Likely files:**
-- `backend/app/api/kb.py`
-- `backend/app/core/ingestion/corpus_importer.py`
-- `backend/app/core/retrieval/index_store.py`
-- `frontend/src/api/kb.ts`
-- `frontend/src/pages/KnowledgeBaseManager.tsx`
-- `backend/tests/test_kb_import_api.py`
+- `backend/app/core/retrieval/router.py`
+- `backend/app/core/retrieval/filters.py`
+- `backend/app/core/retrieval/hybrid.py`
+- `backend/app/core/retrieval/bm25_store.py`
+- `backend/app/core/retrieval/vector_store.py`
+- `backend/app/api/debug.py`
+- `backend/tests/test_hybrid_retrieval.py`
+- `backend/tests/test_debug_retrieval.py`
 
 **Success criteria:**
-- File upload accepts PDF/MD/TXT and saves to raw/manual collection paths.
-- Import creates a trackable job and can optionally rebuild indexes.
-- Job polling returns success/failure counts and errors.
-- Reindex and single-document maintenance actions are wired to UI actions.
-- Existing chat/query demo still works after management operations.
+- Queries route to table-fact-first, financial-report section, research-report analysis, or general hybrid fallback.
+- Metadata pre-filters can use company, doc_type, date/period, chunk_type, metric, and collection.
+- Debug/retrieval outputs show route choice, filters, candidate counts before/after filtering, and fallback reasons when filters are too narrow.
+- Existing table-aware numeric QA and general text RAG behavior remain green.
 
+### Phase 19 — Multi-stage Retrieval Cascade Trace
 
-### Phase 14 — Table-Aware PDF Extraction
-
-**Purpose:** Stop treating all PDF table content as plain text by extracting table objects during the raw PDF processing stage.
-
-**Likely files:**
-- `pdf2md/src/elite_daily_pdf_to_md/extraction.py`
-- `pdf2md/src/elite_daily_pdf_to_md/finrag.py`
-- `pdf2md/src/elite_daily_pdf_to_md/output.py`
-- `backend/app/data/raw/tables/` generated artifacts
-- `pdf2md/tests/test_finrag_adapter.py`
-
-**Success criteria:**
-- FinRAG PDF extraction emits Markdown text exactly as before plus table JSON/CSV/manifest artifacts.
-- Each table artifact preserves page, inferred title/caption when possible, headers, rows, Markdown table rendering, row/column counts, and source PDF metadata.
-- Extraction remains idempotent and degrades to text-only when table extraction fails.
-- The existing 40-PDF corpus can be reprocessed without reducing current document/chunk availability.
-
-### Phase 15 — Table Chunking And Structured Facts
-
-**Purpose:** Import table artifacts into backend corpus/index data as first-class evidence instead of plain text only.
-
-**Likely files:**
-- `backend/app/models/schemas.py`
-- `backend/app/core/ingestion/corpus_importer.py`
-- `backend/app/core/ingestion/chunker.py`
-- `backend/app/core/ingestion/raw_loader.py`
-- `backend/tests/test_corpus_import.py`
-- `backend/tests/test_import_pipeline_integration.py`
-
-**Success criteria:**
-- Chunks support `chunk_type` values: `text`, `table`, `table_row`, `table_summary`.
-- Table chunk metadata includes table id/title, page, statement type, unit/currency, row/column counts, company/ticker/doc/report-period/source PDF.
-- Financial statement rows such as revenue, gross profit, operating income, net income, EPS are normalized into a local structured facts JSON store.
-- Existing text chunks and document APIs remain backward compatible.
-
-### Phase 16 — Table-Aware Retrieval And QA Integration
-
-**Purpose:** Make financial numeric questions retrieve and cite structured table evidence reliably.
+**Purpose:** Turn retrieval into an inspectable cascade rather than a single fused top-k list.
 
 **Likely files:**
 - `backend/app/core/retrieval/hybrid.py`
 - `backend/app/core/retrieval/rerank_service.py`
-- `backend/app/core/agent/workflow.py`
 - `backend/app/models/events.py`
+- `backend/app/models/schemas.py`
+- `backend/app/core/agent/workflow.py`
+- `frontend/src/types.ts` only if frontend typing needs the new optional trace fields
 - `backend/tests/test_hybrid_retrieval.py`
 - `backend/tests/test_query_api.py`
-- `frontend/src/types.ts` only if table citation metadata needs a type update.
 
 **Success criteria:**
-- Queries like “英伟达2026年第三季度的总营收是多少？” prioritize table evidence and can return deterministic table facts.
-- Debug retrieval and query SSE expose enough metadata to show table citations distinctly.
-- Existing text RAG, KB management APIs, and frontend build remain green.
-- Tests cover at least NVIDIA revenue, Moutai revenue/net profit, and one TSMC financial table query.
+- Retrieval records stages for query plan/route, metadata filter, coarse recall, fusion/lightweight selection, rerank, and final evidence.
+- Each stage records name, input count, output count, method/source, and degradation/fallback metadata.
+- SSE and debug retrieval expose stage traces without breaking existing frontend consumers.
+- Tests verify deterministic cascade traces for factual, analytical, and table-fact queries.
+
+### Phase 20 — Evidence Compression And Context Builder
+
+**Purpose:** Reduce context pollution by feeding generation a compact, source-grounded evidence pack.
+
+**Likely files:**
+- `backend/app/core/agent/context_builder.py`
+- `backend/app/core/agent/generator.py`
+- `backend/app/core/agent/prompts.py`
+- `backend/app/core/agent/workflow.py`
+- `backend/tests/test_agent_workflow.py`
+- `backend/tests/test_query_api.py`
+
+**Success criteria:**
+- Generation uses an evidence pack containing salient facts, numeric values, claims, citation IDs, and source metadata.
+- Duplicate or overlapping evidence from the same source/table/metric is compressed.
+- Table facts preserve value, unit, currency, period, page, and source without lossy summarization.
+- Existing citation metadata remains accurate in `done` events.
+
+### Phase 21 — Agentic Iterative Retrieval Demo Mode
+
+**Purpose:** Demonstrate retrieval as a reasoning process for complex financial analysis questions.
+
+**Likely files:**
+- `backend/app/core/agent/retrieval_planner.py`
+- `backend/app/core/agent/workflow.py`
+- `backend/app/core/agent/query_analysis.py`
+- `backend/app/models/events.py`
+- `backend/tests/test_agent_workflow.py`
+- `backend/tests/test_query_api.py`
+
+**Success criteria:**
+- Analytical/reasoning queries can create 2-3 retrieval steps with explicit purpose, generated retrieval query, route, filters, and selected evidence.
+- Simple factual lookups keep the single-pass cascade path.
+- Iterative retrieval falls back gracefully when planning or evidence collection fails.
+- SSE/debug traces expose iterative steps for demo explanation without requiring frontend redesign.
+
+### Phase 22 — Hierarchical Chunking And Drill-down Retrieval
+
+**Purpose:** Add multi-scale retrieval after the safer architecture layers are in place.
+
+**Likely files:**
+- `backend/app/core/ingestion/chunker.py`
+- `backend/app/core/ingestion/corpus_importer.py`
+- `backend/app/core/ingestion/table_facts.py`
+- `backend/app/core/retrieval/hybrid.py`
+- `backend/app/core/retrieval/filters.py`
+- `backend/tests/test_corpus_import.py`
+- `backend/tests/test_import_pipeline_integration.py`
+- `backend/tests/test_hybrid_retrieval.py`
+
+**Success criteria:**
+- Chunks can carry `chunk_level`, `parent_id`, `section_title`, `section_path`, and child relationship metadata.
+- Retrieval can optionally recall section/table-summary evidence first, then drill down to paragraph/table-row children.
+- Corpus import and index rebuild remain deterministic.
+- Existing chunk consumers and KB/document APIs remain backward compatible.
+
+## Requirement Coverage
+
+| Requirement | Phase | Status |
+| --- | --- | --- |
+| QUERY-01 | Phase 17 | Pending |
+| QUERY-02 | Phase 17 | Pending |
+| QUERY-03 | Phase 17 | Pending |
+| ROUTE-01 | Phase 18 | Pending |
+| ROUTE-02 | Phase 18 | Pending |
+| ROUTE-03 | Phase 18 | Pending |
+| ROUTE-04 | Phase 18 | Pending |
+| CASCADE-01 | Phase 19 | Pending |
+| CASCADE-02 | Phase 19 | Pending |
+| CASCADE-03 | Phase 19 | Pending |
+| CASCADE-04 | Phase 19 | Pending |
+| EVIDENCE-01 | Phase 20 | Pending |
+| EVIDENCE-02 | Phase 20 | Pending |
+| EVIDENCE-03 | Phase 20 | Pending |
+| EVIDENCE-04 | Phase 20 | Pending |
+| ITER-01 | Phase 21 | Pending |
+| ITER-02 | Phase 21 | Pending |
+| ITER-03 | Phase 21 | Pending |
+| ITER-04 | Phase 21 | Pending |
+| HIER-01 | Phase 22 | Pending |
+| HIER-02 | Phase 22 | Pending |
+| HIER-03 | Phase 22 | Pending |
+| HIER-04 | Phase 22 | Pending |
+
+**Coverage:** 23 requirements mapped to 6 phases; unmapped requirements: 0.
 
 ## Next Action
 
-Review or complete the v1.3 milestone.
+Plan Phase 17 — Structured Query Understanding And Retrieval Plan.

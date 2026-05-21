@@ -1,8 +1,8 @@
 # Project: FinRAG 金融智能研究 Agent
 
 **Initialized:** 2026-05-13  
-**Current shipped milestone:** v1.2 Frontend Evidence Traceability & Interaction Polish  
-**Last updated:** 2026-05-13 after starting v1.3 milestone
+**Current shipped milestone:** v1.3 Knowledge Base Management  
+**Last updated:** 2026-05-21 after starting v1.4 milestone
 
 ## Current State
 
@@ -14,6 +14,7 @@ Shipped capabilities:
 - v1.1 document import pipeline: generic PDF extraction through `pdf2md --profile finrag`, raw Markdown artifacts, backend import into `documents.json`/`chunks.json`, deterministic chunking, and BM25/vector index rebuild.
 - Real-corpus import has been smoke tested with 40 PDFs across 宁德时代、贵州茅台、NVIDIA、台积电, producing 40 documents and 9303 chunks.
 - v1.2 frontend evidence traceability work added real-corpus entry points, document opening, retrieval panel polish, and per-turn evidence snapshots.
+- v1.3 knowledge base management added single-app KB management, upload/import/reindex APIs, table-aware PDF extraction, table/table-row chunking, structured financial facts, and table-aware retrieval for numeric financial questions.
 
 ## Core Value
 
@@ -49,34 +50,27 @@ React frontend / SSE query workflow
 - OCR is out of scope unless a future milestone explicitly requires scanned-PDF support.
 
 
-## Current Milestone: v1.3 Knowledge Base Management
+## Current Milestone: v1.4 Advanced RAG Retrieval Architecture
 
-**Goal:** Add lightweight knowledge base management so FinRAG can manage documents, trigger import/reindex operations, and integrate the externally built management page into the existing single frontend app.
+**Goal:** Upgrade FinRAG from a basic hybrid RAG pipeline into a demonstrable advanced financial RAG architecture with structured query understanding, knowledge routing, metadata pre-filtering, multi-stage retrieval, evidence compression, and iterative retrieval traces.
 
 **Target features:**
-- Integrate `finrag-knowledge-base-manager/` into `frontend/` so only one frontend app needs to run.
-- Add a “知识库管理” entry from the chat header and a return path back to the chat screen.
-- Implement read-only `/api/kb/*` APIs for overview, document list, and document detail.
-- Implement upload, import job, reindex, single-document reimport, and soft-disable/delete APIs.
-- Wire the management page to real backend endpoints and run regression checks for existing chat/query flows.
-- Add table-aware PDF extraction, table chunking, structured financial facts, and table-aware retrieval for numeric financial questions.
-
-## Current Milestone Addendum: Table-Aware RAG
-
-Based on `docs/table处理.txt`, v1.3 now includes follow-on phases to preserve table structure and improve financial numeric QA:
-
-1. Phase 14 — extract table objects during PDF processing and emit table artifacts/manifests.
-2. Phase 15 — import table artifacts as table/table-row/table-summary chunks and structured facts.
-3. Phase 16 — route metric/numeric questions through table-aware retrieval and expose table evidence.
+- Add a structured query plan that extracts entities, metrics, time range, task type, preferred document types, and retrieval strategy before search.
+- Route queries to specialized retrieval paths such as table-fact-first, financial-report section search, research-report analysis, and general hybrid fallback.
+- Apply metadata pre-filtering before BM25/vector retrieval to reduce candidate sets by company, document type, date/period, chunk type, metric, and collection.
+- Make retrieval a visible multi-stage cascade with stage-level trace data for filter, recall, fusion, rerank, and final evidence selection.
+- Build compressed evidence packs for generation so answers use salient facts, numbers, claims, and citation metadata instead of raw top chunks.
+- Add a lightweight iterative retrieval demo mode for analytical/reasoning questions.
+- Defer hierarchical chunking to the final phase of the milestone because it may require corpus/index rebuild and has the broadest data-model impact.
 
 ## Next Milestone Goals
 
-Potential next work:
+Potential next work after v1.4:
 
-1. Improve corpus metadata quality with explicit metadata manifests and better title/company/doc-type normalization.
-2. Decide how to manage large generated corpus/index artifacts in git or external storage.
-3. Add OCR only if scanned source PDFs become a requirement.
-4. Polish knowledge base management UI after backend integration feedback.
+1. Add graph memory or entity-relation traversal for cross-company and supply-chain reasoning.
+2. Improve corpus metadata manifests and normalization beyond the curated demo companies.
+3. Decide how to manage large generated corpus/index artifacts in git or external storage.
+4. Add OCR only if scanned source PDFs become a requirement.
 
 <details>
 <summary>Archived project context before v1.1 completion</summary>
