@@ -4,7 +4,7 @@ milestone: v1.4
 milestone_name: Advanced RAG Retrieval Architecture
 status: executing
 last_updated: "2026-05-21T04:49:25.551Z"
-last_activity: 2026-05-21 -- Phase 17 execution started
+last_activity: "2026-05-21 -- Completed quick task 260521-meg: fix Phase 19/20 code review findings for retrieval plan propagation, evidence packing, and cascade trace"
 progress:
   total_phases: 6
   completed_phases: 0
@@ -24,7 +24,7 @@ progress:
 Phase: 17 (Structured Query Understanding And Retrieval Plan) — EXECUTING
 Plan: 1 of 1
 Status: Executing Phase 17
-Last activity: 2026-05-21 -- Phase 17 execution started
+Last activity: 2026-05-21 -- Completed quick task 260521-meg: fix Phase 19/20 code review findings for retrieval plan propagation, evidence packing, and cascade trace
 
 ## Completed Milestones
 
@@ -56,6 +56,7 @@ Plan Phase 17 — Structured Query Understanding And Retrieval Plan.
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-21 | 260521-meg | Fix Phase 19/20 code review findings for retrieval plan propagation, evidence packing, and cascade trace | Passed plan through workflow retrieval, made evidence packing robust to missing citation ids, aligned cascade trace order, added evidence compression trace counts, and verified 102 backend tests. |
 | 2026-05-14 | frontend-markdown-citation-rendering | Fix frontend Markdown and citation rendering for mixed citation formats | Normalized model-emitted citation HTML/superscript/plain markers, removed invalid citation placeholders, and preserved clickable citation spans. |
 | 2026-05-14 | kb-settings-ui-polish | Add knowledge-base settings modal and align chat/KB headers | Added frontend-only KB settings dialog, unified chat header title/style, and reordered KB header actions. |
 | 2026-05-14 | silicon-index-rebuild | Rebuild vector index with SiliconFlow BAAI/bge-m3 | Rebuilt 14091 vectors with provider `silicon`, model `BAAI/bge-m3`, dimension 1024; query smoke test passed. |
