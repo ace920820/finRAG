@@ -359,14 +359,16 @@ COMPANY_ALIASES = {
 |---|-------|---------|---------------|
 | A1 | The planner can choose exact Pydantic field names as long as D-28 semantics are represented. [ASSUMED] | Architecture Patterns | Low; CONTEXT.md explicitly allows field-name adjustment, but tests must lock final names. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `QueryRewriteEvent.plan` be omitted when `None` or serialized as `null`?** [VERIFIED: backend/app/models/events.py]
+   - RESOLVED: Add `plan` as an optional `QueryRewriteEvent` field and populate it for Phase 17 `query_rewrite` events; when older/manual construction omits it, Pydantic may serialize the field as `null`, but existing fields and event order must remain unchanged. Tests should assert populated plan data for `analyze_query()`/SSE and compatibility for optional serialization. [VERIFIED: 17-CONTEXT.md D-34-D-35, backend/tests/test_sse_formatter.py]
    - What we know: Existing event formatter serializes Pydantic payloads and tests only assert current fields, not absence of extras. [VERIFIED: backend/tests/test_sse_formatter.py, backend/tests/test_query_api.py]
    - What's unclear: Frontend tolerance for extra optional `plan` field was not inspected in this research pass. [ASSUMED]
    - Recommendation: Add `plan` always for query rewrite after Phase 17 and keep old fields unchanged. [VERIFIED: 17-CONTEXT.md D-35]
 
 2. **Should ontology constants live in `core/agent` or `core/retrieval`?** [VERIFIED: backend/app/core/agent/query_analysis.py, backend/app/core/retrieval/table_facts.py]
+   - RESOLVED: Create `backend/app/core/agent/query_ontology.py` for Phase 17 and import its shared constants into `table_facts.py`; this keeps query planning near the agent boundary while preventing alias drift with retrieval numeric QA. [VERIFIED: 17-CONTEXT.md D-09-D-16, 17-01-PLAN.md]
    - What we know: Both agent analysis and table fact retrieval need the constants. [VERIFIED: backend/app/core/agent/query_analysis.py:13-39, backend/app/core/retrieval/table_facts.py:12-30]
    - What's unclear: The project has no established shared ontology module yet. [VERIFIED: filesystem/code scan]
    - Recommendation: Put `query_ontology.py` under `backend/app/core/agent` for Phase 17, and import from `table_facts.py`; this is small and avoids broad package reshaping. [ASSUMED]
