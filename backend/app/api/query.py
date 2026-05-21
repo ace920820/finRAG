@@ -6,6 +6,7 @@ import logging
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
+from app.core.agent.context_builder import build_evidence_pack
 from app.core.agent.generator import AnswerGenerator
 from app.core.agent.query_analysis import analyze_query
 from app.core.agent.workflow import build_citations, estimate_tokens, retrieval_query
@@ -33,6 +34,7 @@ def query(request: QueryRequest) -> StreamingResponse:
             retrieval_emitted = False
             rerank_emitted = False
             evidence = []
+            evidence_pack = None
             try:
                 logger.info("retrieval started")
                 retriever = HybridRetriever.load_default()
@@ -73,7 +75,8 @@ def query(request: QueryRequest) -> StreamingResponse:
                         rerank_result.fallback_reason,
                     ),
                 )
-                evidence = rerank_result.top5
+                evidence_pack = build_evidence_pack(rerank_result.top5)
+                evidence = evidence_pack.items
                 yield format_sse_event("rerank_complete", rerank)
                 rerank_emitted = True
             except Exception as exc:
@@ -89,7 +92,7 @@ def query(request: QueryRequest) -> StreamingResponse:
                 yield format_sse_error("RETRIEVAL_DEGRADED", str(exc))
 
             logger.info("generation started evidence=%d", len(evidence))
-            answer_text = AnswerGenerator().generate(request.query, intent, evidence)
+            answer_text = AnswerGenerator().generate(request.query, intent, evidence, evidence_pack=evidence_pack)
             logger.info("generation complete chars=%d", len(answer_text))
             chunks = split_markdown_chunks(answer_text)
             yield format_sse_ping()

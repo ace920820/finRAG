@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Optional, Sequence
 
+from app.core.agent.context_builder import EvidencePack
 from app.models.events import IntentDetectedEvent
 from app.models.schemas import RerankResultItem
 
@@ -16,21 +17,23 @@ _NO_EVIDENCE_RULES = """你是 FinRAG 金融研究 Agent。当前本地资料没
 不要添加 citation 标记。"""
 
 
-def build_generation_prompt(query: str, intent: IntentDetectedEvent, evidence: Sequence[RerankResultItem]) -> str:
+def build_generation_prompt(query: str, intent: IntentDetectedEvent, evidence: Sequence[RerankResultItem], evidence_pack: Optional[EvidencePack] = None) -> str:
     evidence_lines = []
-    for item in evidence:
+    prompt_items = evidence_pack.items if evidence_pack is not None else evidence
+    for item in prompt_items:
         table_bits = []
         if item.metadata:
             for key in ("chunk_type", "table_id", "metric", "period_label", "raw_value", "unit", "currency"):
                 if item.metadata.get(key) not in (None, ""):
                     table_bits.append(f"{key}={item.metadata.get(key)}")
         metadata_text = " | " + " | ".join(table_bits) if table_bits else ""
+        content = getattr(item, "compact_content", None) or item.content
         evidence_lines.append(
             f"[{item.citation_id}] {item.title} | {item.company} | {item.date} | "
-            f"page={item.page or 'N/A'}{metadata_text} | {item.content}"
+            f"page={item.page or 'N/A'}{metadata_text} | {content}"
         )
     evidence_text = "\n".join(evidence_lines) or "无可用资料"
-    rules = _SYSTEM_RULES if evidence else _NO_EVIDENCE_RULES
+    rules = _SYSTEM_RULES if prompt_items else _NO_EVIDENCE_RULES
     return (
         f"{rules}\n\n"
         f"问题：{query}\n"

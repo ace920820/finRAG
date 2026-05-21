@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Optional, Sequence
 
+from app.core.agent.context_builder import EvidencePack
 from app.core.agent.prompts import build_generation_prompt
 from app.core.providers.text import build_text_provider
 from app.models.events import IntentDetectedEvent
@@ -12,16 +13,17 @@ class AnswerGenerator:
     def __init__(self, text_provider=None):
         self.text_provider = text_provider or build_text_provider()
 
-    def generate(self, query: str, intent: IntentDetectedEvent, evidence: Sequence[RerankResultItem]) -> str:
-        prompt = build_generation_prompt(query, intent, evidence)
+    def generate(self, query: str, intent: IntentDetectedEvent, evidence: Sequence[RerankResultItem], evidence_pack: Optional[EvidencePack] = None) -> str:
+        prompt = build_generation_prompt(query, intent, evidence, evidence_pack=evidence_pack)
+        generation_evidence = evidence_pack.items if evidence_pack is not None else evidence
         try:
-            answer = self.text_provider.generate_text(prompt, query=query, intent=intent.intent, evidence=evidence)
+            answer = self.text_provider.generate_text(prompt, query=query, intent=intent.intent, evidence=generation_evidence)
         except TypeError:
             answer = self.text_provider.generate_text(prompt)
         except Exception:
             answer = ""
         if not answer.strip():
-            return build_mock_answer(query, intent, evidence)
+            return build_mock_answer(query, intent, generation_evidence)
         return answer.strip()
 
 

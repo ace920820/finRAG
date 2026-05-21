@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Optional
 
+from app.core.agent.context_builder import build_evidence_pack
 from app.core.agent.generator import AnswerGenerator
 from app.core.agent.query_analysis import analyze_query
 from app.core.retrieval.hybrid import HybridRetriever
@@ -44,6 +45,7 @@ class QueryWorkflow:
         degraded = False
         fallback_reason = None
         evidence = []
+        evidence_pack = None
         try:
             logger.info("retrieval started")
             retrieval_result = self.retriever.retrieve(retrieval_query(rewrite))
@@ -71,14 +73,15 @@ class QueryWorkflow:
             )
             degraded = rerank_result.degraded
             fallback_reason = rerank_result.fallback_reason
-            evidence = rerank_result.top5
+            evidence_pack = build_evidence_pack(rerank_result.top5)
+            evidence = evidence_pack.items
         except Exception as exc:
             logger.exception("query retrieval/rerank failed")
             degraded = True
             fallback_reason = str(exc)
             rerank = RerankCompleteEvent(degraded=True, fallback_reason=fallback_reason, score_source="hybrid_fusion")
         logger.info("generation started evidence=%d", len(evidence))
-        answer = self.generator.generate(request.query, intent, evidence)
+        answer = self.generator.generate(request.query, intent, evidence, evidence_pack=evidence_pack)
         logger.info("generation complete chars=%d", len(answer))
         citations = build_citations(evidence)
         done = DoneEvent(
