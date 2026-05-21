@@ -28,6 +28,7 @@ def test_debug_retrieval_endpoint_returns_retrieval_and_rerank_sections():
         'query_plan',
         'coarse_recall',
         'metadata_filter',
+        'hierarchy_drill_down',
         'fusion',
         'rerank',
         'final_evidence',

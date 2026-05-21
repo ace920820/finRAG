@@ -56,6 +56,7 @@ def test_query_endpoint_streams_expected_events():
         'query_plan',
         'coarse_recall',
         'metadata_filter',
+        'hierarchy_drill_down',
         'fusion',
     ]
     metadata_filter = next(stage for stage in retrieval['cascade_trace'] if stage['name'] == 'metadata_filter')

@@ -38,6 +38,7 @@ def test_workflow_returns_all_stage_payloads():
         'query_plan',
         'coarse_recall',
         'metadata_filter',
+        'hierarchy_drill_down',
         'fusion',
     ]
     assert result.rerank_complete.top5
