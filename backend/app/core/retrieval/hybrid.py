@@ -29,7 +29,7 @@ class HybridRetrievalResult:
     vector_error: Optional[str] = None
     route: Optional[str] = None
     route_reason: Optional[str] = None
-    applied_filters: dict[str, object] = None
+    applied_filters: Optional[dict[str, object]] = None
     filter_before_count: Optional[int] = None
     filter_after_count: Optional[int] = None
     filters_relaxed: bool = False

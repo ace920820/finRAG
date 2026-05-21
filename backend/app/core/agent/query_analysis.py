@@ -4,6 +4,13 @@ import re
 from datetime import datetime
 from typing import List, Optional
 
+try:
+    import dateparser as _dp
+    _DATEPARSER_AVAILABLE = True
+except ImportError:
+    _dp = None  # type: ignore[assignment]
+    _DATEPARSER_AVAILABLE = False
+
 from app.core.agent.query_ontology import QUARTER_ALIASES, match_companies, match_metrics, normalize_query
 from app.models.events import IntentDetectedEvent, QueryRewriteEvent
 from app.models.schemas import QueryEntity, QueryIntent, QueryMetric, QueryTaskType, QueryTimeRange, RetrievalPlan, RetrievalStrategy
@@ -197,10 +204,10 @@ def _build_signals(
     time_signals: list[str],
 ) -> list[str]:
     signals = [f"task:{task_type}", f"strategy:{retrieval_strategy}"]
-    if companies:
-        signals.append("entity:matched")
-    if metrics:
-        signals.append("metric:matched")
+    for company in companies:
+        signals.append(f"entity:{company['canonical']}")
+    for metric in metrics:
+        signals.append(f"metric:{metric['canonical']}")
     signals.extend(time_signals)
     return _unique(signals)
 
@@ -220,32 +227,22 @@ def _parse_time_range(original_query: str, normalized_query: str) -> tuple[Optio
         return QueryTimeRange(year=parsed.year if parsed else year, quarter=quarter, fiscal=fiscal, raw=ordinary_date.group(0)), signals
     if year or quarter:
         return QueryTimeRange(year=year, quarter=quarter, fiscal=fiscal, raw=original_query), _time_signals(year, quarter, fiscal)
-    fallback = _dateparser_fallback(original_query)
-    if fallback:
-        return fallback
     return None, []
 
 
-def _dateparser_fallback(original_query: str) -> tuple[QueryTimeRange, list[str]]:
-    match = _match_ordinary_date(original_query)
-    if not match:
-        return QueryTimeRange(raw=None), []
-    text = match.group(0)
-    parsed = _parse_ordinary_date(text)
-    if parsed is None:
-        return QueryTimeRange(raw=text), ["time_fallback:dateparser"]
-    return QueryTimeRange(year=parsed.year, raw=text), ["time_fallback:dateparser"]
-
-
 def _parse_ordinary_date(text: str) -> Optional[datetime]:
-    try:
-        return datetime.strptime(text, "%Y-%m-%d")
-    except ValueError:
-        pass
-    try:
-        return datetime.strptime(text, "%B %d %Y")
-    except ValueError:
-        return None
+    for fmt in ("%Y-%m-%d", "%B %d %Y", "%d %B %Y"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            pass
+    if _DATEPARSER_AVAILABLE:
+        try:
+            result = _dp.parse(text, settings={"RETURN_AS_TIMEZONE_AWARE": False, "PREFER_DAY_OF_MONTH": "first"})
+            return result
+        except Exception:
+            pass
+    return None
 
 
 def _match_ordinary_date(original_query: str):

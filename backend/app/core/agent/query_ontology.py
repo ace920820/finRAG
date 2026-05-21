@@ -29,17 +29,6 @@ QUARTER_ALIASES = {
     "q4": ("q4", "第四季度", "四季度"),
 }
 
-FULL_WIDTH_TRANSLATION = str.maketrans(
-    {
-        ord("０") + index: str(index) for index in range(10)
-    }
-    | {
-        ord("Ａ") + index: chr(ord("a") + index) for index in range(26)
-    }
-    | {
-        ord("ａ") + index: chr(ord("a") + index) for index in range(26)
-    }
-)
 PUNCTUATION_TRANSLATION = str.maketrans({
     "，": " ",
     "。": " ",
