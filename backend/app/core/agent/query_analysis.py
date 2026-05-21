@@ -44,7 +44,7 @@ def build_retrieval_plan(original_query: str, normalized_query: str, intent: Que
     metric_matches = match_metrics(normalized_query)
     time_range, time_signals = _parse_time_range(original_query, normalized_query)
     task_type = _infer_task_type(original_query, normalized_query, intent, metric_matches)
-    retrieval_strategy = _infer_retrieval_strategy(task_type, company_matches, metric_matches, time_range)
+    retrieval_strategy = _infer_retrieval_strategy(original_query, task_type, company_matches, metric_matches, time_range)
     preferred_doc_types = _preferred_doc_types(task_type, retrieval_strategy)
     filters = _build_filters(company_matches, metric_matches, time_range)
     signals = _build_signals(task_type, retrieval_strategy, company_matches, metric_matches, time_signals)
@@ -142,11 +142,15 @@ def _infer_task_type(
 
 
 def _infer_retrieval_strategy(
+    original_query: str,
     task_type: QueryTaskType,
     companies: list[dict[str, object]],
     metrics: list[dict[str, object]],
     time_range: Optional[QueryTimeRange],
 ) -> RetrievalStrategy:
+    if companies and time_range and time_range.year and any(token in original_query for token in ("财报", "报表", "年报", "季报", "10k", "10q")):
+        if not any(token in original_query for token in ("多少", "是多少", "具体", "几", "金额", "值")):
+            return "financial_report_first"
     if task_type == "metric_lookup" and companies and metrics:
         return "table_fact_first"
     if task_type in {"risk_analysis", "causal_analysis", "trend_analysis", "comparison"}:

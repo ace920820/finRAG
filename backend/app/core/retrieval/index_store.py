@@ -32,6 +32,11 @@ class RetrievalIndexStore:
             if vector_store is None:
                 embedding_provider = build_embedding_provider()
                 vector_store = VectorStore.from_chunks(chunks, embedding_provider)
+            else:
+                embedding_provider = build_embedding_provider()
+                expected_dimension = len(embedding_provider.embed_texts(["probe"])[0])
+                if vector_store.dimension and vector_store.dimension != expected_dimension:
+                    vector_store = VectorStore.from_chunks(chunks, embedding_provider)
         else:
             embedding_provider = build_embedding_provider()
             vector_store = VectorStore.from_chunks(chunks, embedding_provider)

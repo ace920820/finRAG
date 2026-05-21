@@ -42,6 +42,8 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
     change_requested = _change_requested(lowered)
     if not requested_metric or not requested_companies:
         return []
+    if requested_years and requested_quarter is None:
+        requested_quarter = _infer_quarter_from_query(lowered)
     matches: list[TableFactMatch] = []
     fact_items = list(facts if facts is not None else load_table_facts())
     total_metric_requested = any(term in lowered for term in ("总营收", "total revenue"))
@@ -118,7 +120,7 @@ def query_table_facts(query: str, facts: Iterable[dict[str, Any]] | None = None,
         if current_period_matched:
             score += 3.0
             reasons.append("current_period")
-        if requested_quarter and not current_period_matched and "前三季度" not in query:
+        if requested_quarter and not (quarter_matched or current_period_matched) and "前三季度" not in query:
             continue
         if (not requested_years or year_matched) and (not requested_quarter or quarter_matched or current_period_matched):
             reasons.append("strict_period_match")
@@ -324,6 +326,18 @@ def _requested_quarter(lowered_query: str) -> str | None:
     for quarter, aliases in QUARTER_ALIASES.items():
         if any(_term_in_query(alias, lowered_query) for alias in aliases):
             return quarter
+    return None
+
+
+def _infer_quarter_from_query(lowered_query: str) -> str | None:
+    if "q1" in lowered_query or "第一季度" in lowered_query or "一季度" in lowered_query:
+        return "q1"
+    if "q2" in lowered_query or "第二季度" in lowered_query or "二季度" in lowered_query or "半年度" in lowered_query:
+        return "q2"
+    if "q3" in lowered_query or "第三季度" in lowered_query or "三季度" in lowered_query or "前三季度" in lowered_query:
+        return "q3"
+    if "q4" in lowered_query or "第四季度" in lowered_query or "四季度" in lowered_query:
+        return "q4"
     return None
 
 

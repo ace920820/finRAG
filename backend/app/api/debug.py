@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app.core.agent.query_analysis import analyze_query
 from app.core.retrieval.hybrid import HybridRetriever
 from app.core.retrieval.rerank_service import RerankService
 from app.models.events import RerankCompleteEvent, RetrievalCompleteEvent
@@ -30,7 +31,8 @@ class DebugRetrievalResponse(BaseModel):
 
 @router.post("/retrieval", response_model=DebugRetrievalResponse)
 def debug_retrieval(request: DebugRetrievalRequest) -> DebugRetrievalResponse:
-    retrieval = HybridRetriever.load_default().retrieve(request.query)
+    rewrite, _ = analyze_query(request.query)
+    retrieval = HybridRetriever.load_default().retrieve(request.query, plan=rewrite.plan)
     rerank = RerankService().rerank(request.query, retrieval.fused_top20)
     return DebugRetrievalResponse(
         retrieval_complete=RetrievalCompleteEvent(

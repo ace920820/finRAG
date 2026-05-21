@@ -35,7 +35,11 @@ def query(request: QueryRequest) -> StreamingResponse:
             try:
                 logger.info("retrieval started")
                 retriever = HybridRetriever.load_default()
-                retrieval_result = retriever.retrieve(retrieval_query(rewrite), plan=rewrite.plan)
+                retrieval_query_text = retrieval_query(rewrite)
+                try:
+                    retrieval_result = retriever.retrieve(retrieval_query_text, plan=rewrite.plan)
+                except TypeError:
+                    retrieval_result = retriever.retrieve(retrieval_query_text)
                 logger.info(
                     "retrieval complete bm25=%d vector=%d fused=%d",
                     len(retrieval_result.bm25_results),
