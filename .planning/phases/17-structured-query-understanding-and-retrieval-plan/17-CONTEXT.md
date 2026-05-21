@@ -34,8 +34,9 @@ This phase does not implement routing/filtering execution, multi-stage retrieval
 - **D-09:** Entity extraction is dictionary-driven. Existing company aliases should be promoted into a canonical entity ontology.
 - **D-10:** The initial ontology must cover existing demo entities: `NVIDIA`, `贵州茅台`, `宁德时代`, `台积电`, plus existing macro/domain entries where still useful.
 - **D-11:** Aliases such as `英伟达`, `NVDA`, `nvidia` must normalize to `NVIDIA`; `茅台`, `600519`, `贵州茅台` normalize to `贵州茅台`; `CATL`, `300750`, `宁德时代` normalize to `宁德时代`; `TSMC`, `2330`, `台积电` normalize to `台积电`.
-- **D-12:** Matching should be implemented behind a small matcher abstraction so a simple dictionary scan can later be swapped for trie, Aho-Corasick, or FlashText-style matching without changing parser output.
-- **D-13:** For Phase 17, dependency-light matching is preferred unless the planner finds an already-compatible library with low integration cost. The output contract matters more than the internal matcher algorithm.
+- **D-12:** Matching should be implemented behind a small matcher abstraction so the parser output is independent of whether the backend is FlashText, trie/Aho-Corasick, or a deterministic fallback matcher.
+- **D-13:** Because FinRAG is an industrial RAG capability demo, Phase 17 should use a local, lightweight industrial matcher where feasible. Prefer `flashtext-i18n` as the default keyword matcher because it preserves FlashText-style high-performance dictionary extraction while addressing CJK/Unicode boundary issues. Keep a stdlib fallback matcher for deterministic tests and environments where the dependency is unavailable.
+- **D-13A:** Do not hand-roll a complex trie/Aho-Corasick implementation in Phase 17. If future scale requires it, add a separate backend behind the same matcher interface, such as `pyahocorasick`, after benchmark evidence justifies the extra dependency.
 
 ### Metric Ontology
 
@@ -50,7 +51,7 @@ This phase does not implement routing/filtering execution, multi-stage retrieval
 - **D-19:** The parser must recognize years, quarters, fiscal quarter expressions, `latest`/`最近`/`近期`, and broad ranges such as `近年`/`recent_years`.
 - **D-20:** Examples: `2026年第三季度`, `2026Q3`, `FY2026 Q3`, and `2026 fiscal third quarter` should normalize to a structured year/quarter representation.
 - **D-21:** Duckling should not be introduced in Phase 17 because it adds a service/runtime dependency that is too heavy for the local demo.
-- **D-22:** `dateparser` may be considered by the planner only if it adds clear value with low dependency risk; regex/rule parsing is acceptable and preferred for core financial periods.
+- **D-22:** Use a two-layer time parser: deterministic financial-period rules first for fiscal years, quarters, latest/recent/recent-years, then `dateparser` as a fallback for ordinary natural-language dates that are not financial reporting periods. Pin a Python-version-compatible range; `dateparser` 1.4.0 requires Python 3.10+, so Python 3.9-compatible environments should use the 1.2.x line.
 
 ### Intent And Task Type
 
@@ -85,7 +86,7 @@ This phase does not implement routing/filtering execution, multi-stage retrieval
 
 ### the agent's Discretion
 
-- The exact internal matcher implementation is left to the planner, as long as the public parser output is deterministic and easy to swap later.
+- The exact matcher interface shape is left to the planner, but it must make the FlashText/default backend replaceable without changing `build_retrieval_plan()` output.
 - The exact Pydantic field names may be adjusted to match existing style, but the semantic fields in D-28 must be represented.
 - The planner may decide whether to keep ontology constants in `query_analysis.py` for Phase 17 or split them into a small `query_ontology.py` module if that reduces clutter without over-abstracting.
 
@@ -96,8 +97,8 @@ This phase does not implement routing/filtering execution, multi-stage retrieval
 
 - User explicitly prefers Phase 17 as pure rules + ontology + parser, not ML/LLM.
 - User wants Query Understanding to produce structures like `{entity: "NVIDIA", metric: "revenue", time: "2026Q3"}`.
-- User named trie, Aho-Corasick, and FlashText as industrial matching directions, but the key requirement is fast canonical dictionary matching behind a replaceable interface.
-- User named `dateparser` and Duckling as mature parser options; for this local demo, Duckling is deferred and financial-period rules are preferred first.
+- User named trie, Aho-Corasick, and FlashText as industrial matching directions; Phase 17 should visibly implement the industrial matching layer with `flashtext-i18n` and keep a fallback matcher.
+- User named `dateparser` and Duckling as mature parser options; Phase 17 should use `dateparser` fallback for non-financial ordinary dates but keep Duckling deferred because it adds a service dependency.
 - Future Phase 2-style enhancement can use low-cost Qwen/LLM query planner for complex ambiguous causal questions, but only as a supplement to the rule system.
 
 </specifics>
@@ -152,7 +153,7 @@ This phase does not implement routing/filtering execution, multi-stage retrieval
 
 - LLM/Qwen-based query planner fallback for complex ambiguous causal questions — defer to a later milestone or a future enhancement after the rule system is stable.
 - Duckling service integration — deferred due local demo/runtime complexity.
-- Full trie/Aho-Corasick/FlashText dependency adoption — optional later optimization if simple deterministic matching becomes insufficient.
+- A dedicated `pyahocorasick` backend and benchmark/pickled automaton flow — defer until the ontology is large enough to justify a second matcher dependency.
 - Routing/filter execution based on the plan — Phase 18.
 - Multi-stage retrieval trace — Phase 19.
 - Evidence compression — Phase 20.

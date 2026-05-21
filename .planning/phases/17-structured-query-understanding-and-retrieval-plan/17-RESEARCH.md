@@ -30,8 +30,9 @@
 - **D-09:** Entity extraction is dictionary-driven. Existing company aliases should be promoted into a canonical entity ontology.
 - **D-10:** The initial ontology must cover existing demo entities: `NVIDIA`, `贵州茅台`, `宁德时代`, `台积电`, plus existing macro/domain entries where still useful.
 - **D-11:** Aliases such as `英伟达`, `NVDA`, `nvidia` must normalize to `NVIDIA`; `茅台`, `600519`, `贵州茅台` normalize to `贵州茅台`; `CATL`, `300750`, `宁德时代` normalize to `宁德时代`; `TSMC`, `2330`, `台积电` normalize to `台积电`.
-- **D-12:** Matching should be implemented behind a small matcher abstraction so a simple dictionary scan can later be swapped for trie, Aho-Corasick, or FlashText-style matching without changing parser output.
-- **D-13:** For Phase 17, dependency-light matching is preferred unless the planner finds an already-compatible library with low integration cost. The output contract matters more than the internal matcher algorithm.
+- **D-12:** Matching should be implemented behind a small matcher abstraction so the parser output is independent of whether the backend is FlashText, trie/Aho-Corasick, or a deterministic fallback matcher.
+- **D-13:** Because FinRAG is an industrial RAG capability demo, Phase 17 should use a local, lightweight industrial matcher where feasible. Prefer `flashtext-i18n` as the default keyword matcher because it preserves FlashText-style high-performance dictionary extraction while addressing CJK/Unicode boundary issues. Keep a stdlib fallback matcher for deterministic tests and environments where the dependency is unavailable.
+- **D-13A:** Do not hand-roll a complex trie/Aho-Corasick implementation in Phase 17. If future scale requires it, add a separate backend behind the same matcher interface, such as `pyahocorasick`, after benchmark evidence justifies the extra dependency.
 
 ### Metric Ontology
 
@@ -46,7 +47,7 @@
 - **D-19:** The parser must recognize years, quarters, fiscal quarter expressions, `latest`/`最近`/`近期`, and broad ranges such as `近年`/`recent_years`.
 - **D-20:** Examples: `2026年第三季度`, `2026Q3`, `FY2026 Q3`, and `2026 fiscal third quarter` should normalize to a structured year/quarter representation.
 - **D-21:** Duckling should not be introduced in Phase 17 because it adds a service/runtime dependency that is too heavy for the local demo.
-- **D-22:** `dateparser` may be considered by the planner only if it adds clear value with low dependency risk; regex/rule parsing is acceptable and preferred for core financial periods.
+- **D-22:** Use a two-layer time parser: deterministic financial-period rules first for fiscal years, quarters, latest/recent/recent-years, then `dateparser` as a fallback for ordinary natural-language dates that are not financial reporting periods. Pin a Python-version-compatible range; `dateparser` 1.4.0 requires Python 3.10+, so Python 3.9-compatible environments should use the 1.2.x line.
 
 ### Intent And Task Type
 
@@ -89,7 +90,7 @@
 
 - LLM/Qwen-based query planner fallback for complex ambiguous causal questions — defer to a later milestone or a future enhancement after the rule system is stable.
 - Duckling service integration — deferred due local demo/runtime complexity.
-- Full trie/Aho-Corasick/FlashText dependency adoption — optional later optimization if simple deterministic matching becomes insufficient.
+- A dedicated `pyahocorasick` backend and benchmark/pickled automaton flow — defer until the ontology is large enough to justify a second matcher dependency.
 - Routing/filter execution based on the plan — Phase 18.
 - Multi-stage retrieval trace — Phase 19.
 - Evidence compression — Phase 20.
@@ -135,7 +136,9 @@ The project already has overlapping ontology assets: `query_analysis.py` contain
 ### Core
 | Library / Module | Version | Purpose | Why Standard |
 |---------|---------|---------|--------------|
-| Python stdlib `re` / string normalization | Python 3.9.6 runtime | Regex financial-period parsing, alias matching, punctuation cleanup | Existing table fact retrieval already uses regex and deterministic string matching successfully. [VERIFIED: python3 --version, backend/app/core/retrieval/table_facts.py:55-63] |
+| Python stdlib `re` / string normalization | Python 3.9.6 runtime | Financial-period parsing, fallback matching, punctuation cleanup | Existing table fact retrieval already uses regex and deterministic string matching successfully; Phase 17 keeps rules for fiscal periods even while adding industrial matcher/date fallback libraries. [VERIFIED: python3 --version, backend/app/core/retrieval/table_facts.py:55-63] |
+| `flashtext-i18n` | `>=3.1.1,<4.0` | Industrial keyword extraction backend for company and metric ontology matching | Provides FlashText-style dictionary matching while handling CJK/Unicode use cases better than original FlashText; use behind `OntologyMatcher` with stdlib fallback. [VERIFIED: PyPI lookup 2026-05-21] |
+| `dateparser` | `>=1.2.2,<1.3` | Fallback parser for ordinary natural-language dates that are not financial reporting periods | Keeps financial-period rules authoritative while demonstrating mature date parsing for non-quarter expressions; 1.2.x is compatible with Python 3.9, unlike the 1.4.x line requiring Python 3.10+. [VERIFIED: PyPI lookup 2026-05-21] |
 | Pydantic | 2.12.5 installed; requirement `>=2.6,<3.0` | Typed retrieval plan and SSE payload models | Existing API/event contracts are Pydantic models. [VERIFIED: importlib.metadata, backend/requirements.txt, backend/app/models/events.py:8-31, backend/app/models/schemas.py:48-80] |
 | Existing `QueryIntent` | `Literal["factual", "analytical", "reasoning"]` | Backward-compatible public intent surface | Current generator and tests consume these values. [VERIFIED: backend/app/models/schemas.py:6-8, backend/app/core/agent/generator.py, backend/tests/test_query_analysis.py] |
 | Existing `DocType` | `Literal["financial_report", "research_report", "news"]` | Preferred document type values inside the plan | Existing retrieval result schemas use this exact doc type set. [VERIFIED: backend/app/models/schemas.py:6, backend/app/models/schemas.py:53-63] |
@@ -150,14 +153,14 @@ The project already has overlapping ontology assets: `query_analysis.py` contain
 ### Alternatives Considered
 | Instead of | Could Use | Tradeoff |
 |------------|-----------|----------|
-| Simple dictionary scan | Trie / Aho-Corasick / FlashText-style matcher | Deferred because current demo ontology is small and the user locked dependency-light matching as acceptable. [VERIFIED: 17-CONTEXT.md] |
-| Regex/rule financial period parser | `dateparser` | Not needed for the required fiscal quarter patterns and adds dependency risk for little Phase 17 value. [VERIFIED: 17-CONTEXT.md, backend/requirements.txt] |
+| Simple dictionary scan only | FlashText-style matcher via `flashtext-i18n` | Revised: Phase 17 should demonstrate an industrial local matcher while retaining stdlib fallback. [VERIFIED: 17-CONTEXT.md, 17-01-PLAN.md] |
+| Regex/rule financial period parser only | Financial rules + `dateparser` fallback | Revised: financial-quarter rules remain primary, but ordinary date fallback demonstrates mature parser use without Duckling service overhead. [VERIFIED: 17-CONTEXT.md, 17-01-PLAN.md] |
 | In-process rules | Duckling service | Explicitly out of scope because Phase 17 must not add a heavy service dependency. [VERIFIED: 17-CONTEXT.md] |
 | Rule parser | LLM query planner | Explicitly out of scope for Phase 17. [VERIFIED: 17-CONTEXT.md] |
 
 **Installation:**
 ```bash
-# No new package should be required for Phase 17.
+pip install "flashtext-i18n>=3.1.1,<4.0" "dateparser>=1.2.2,<1.3"
 ```
 
 **Version verification:** Python package versions were verified locally with `importlib.metadata`; no npm packages are part of this backend phase. [VERIFIED: local command]
@@ -237,8 +240,8 @@ def normalize_query(query: str) -> str:
     return text
 ```
 
-### Pattern 4: Centralize Ontology, Keep Table Fact Behavior Stable
-**What:** Move shared alias constants to `query_ontology.py`, then import them from both query analysis and table facts. [VERIFIED: backend/app/core/agent/query_analysis.py:13-39, backend/app/core/retrieval/table_facts.py:12-30]
+### Pattern 4: Centralize Ontology, Use Industrial Matcher, Keep Table Fact Behavior Stable
+**What:** Move shared alias constants to `query_ontology.py`, expose an `OntologyMatcher` abstraction that uses `flashtext.KeywordProcessor` by default and a deterministic stdlib fallback when unavailable, then import shared constants from both query analysis and table facts. [VERIFIED: backend/app/core/agent/query_analysis.py:13-39, backend/app/core/retrieval/table_facts.py:12-30, 17-01-PLAN.md]
 **When to use:** Use this because `query_analysis.py` currently canonicalizes NVIDIA as `英伟达`, while table facts canonicalize NVIDIA as `NVIDIA`. [VERIFIED: backend/app/core/agent/query_analysis.py:24-28, backend/app/core/retrieval/table_facts.py:12-17]
 **Example:**
 ```python
@@ -255,7 +258,7 @@ COMPANY_ALIASES = {
 - **Adding a new SSE event before `retrieval_complete`:** Current tests assert the first four event names exactly. [VERIFIED: backend/tests/test_query_api.py:38]
 - **Routing retrieval in Phase 17:** Phase 18 owns route/filter execution, so Phase 17 should only expose `retrieval_strategy` and `filters` as plan data. [VERIFIED: .planning/ROADMAP.md]
 - **Duplicating metric aliases:** Divergent metric aliases would risk breaking `is_table_metric_query()` and table fact lookup. [VERIFIED: backend/app/core/retrieval/table_facts.py:162-169, backend/app/core/retrieval/hybrid.py:168-172]
-- **Adding LLM/date service dependencies:** Phase 17 explicitly forbids LLM planning and Duckling service use. [VERIFIED: 17-CONTEXT.md]
+- **Adding LLM/service dependencies:** Phase 17 explicitly forbids LLM planning and Duckling service use. Local parser libraries (`flashtext-i18n`, `dateparser`) are allowed and planned. [VERIFIED: 17-CONTEXT.md, 17-01-PLAN.md]
 
 ## Don't Hand-Roll
 
@@ -263,7 +266,7 @@ COMPANY_ALIASES = {
 |---------|-------------|-------------|-----|
 | API/event contracts | Loose nested dictionaries | Pydantic models in `schemas.py` and optional event field in `events.py` | Existing contracts use Pydantic and tests serialize event models. [VERIFIED: backend/app/models/events.py, backend/app/models/schemas.py, backend/tests/test_sse_formatter.py] |
 | Large-scale NLP understanding | LLM call, embedding classifier, training pipeline | Rule + dictionary + ontology + regex parser | Phase 17 explicitly requires deterministic no-LLM parsing. [VERIFIED: 17-CONTEXT.md] |
-| Generic date understanding | Duckling service or broad date NLP | Small financial-period regex parser | Required expressions are years, quarters, fiscal quarter strings, latest/recent, and recent-year ranges. [VERIFIED: 17-CONTEXT.md] |
+| Generic date understanding | Duckling service or LLM planner | Financial-period rules plus `dateparser` fallback | Required finance expressions remain deterministic, while ordinary dates can use a mature local parser. [VERIFIED: 17-CONTEXT.md, 17-01-PLAN.md] |
 | New alias taxonomy | Separate constants in every module | Shared ontology constants | Existing code already has two alias sources with NVIDIA canonical mismatch. [VERIFIED: backend/app/core/agent/query_analysis.py:24-28, backend/app/core/retrieval/table_facts.py:12-17] |
 
 **Key insight:** The hard part in Phase 17 is not parsing complexity; it is preserving contracts while making enough structured state available for Phase 18. [VERIFIED: .planning/ROADMAP.md, backend/tests/test_query_api.py]
@@ -351,7 +354,7 @@ COMPANY_ALIASES = {
 **Deprecated/outdated:**
 - LLM-based query planning is out of scope for Phase 17. [VERIFIED: 17-CONTEXT.md]
 - Duckling service integration is out of scope for Phase 17. [VERIFIED: 17-CONTEXT.md]
-- Full trie/Aho-Corasick/FlashText dependency adoption is deferred unless future ontology scale requires it. [VERIFIED: 17-CONTEXT.md]
+- Dedicated pyahocorasick/trie backend and benchmark/pickled automaton flow is deferred until ontology scale justifies it; `flashtext-i18n` is now planned as the default local matcher. [VERIFIED: 17-CONTEXT.md, 17-01-PLAN.md]
 
 ## Assumptions Log
 
@@ -382,7 +385,8 @@ COMPANY_ALIASES = {
 | Pytest | Validation | ✓ | 8.4.2 | None needed. [VERIFIED: local command] |
 | FastAPI | SSE query endpoint tests | ✓ | 0.128.8 | None needed. [VERIFIED: local command] |
 | httpx | FastAPI TestClient dependency | ✓ | 0.28.1 | None needed. [VERIFIED: local command] |
-| New NLP/date/parser dependency | Not required | N/A | N/A | Use stdlib rules. [VERIFIED: 17-CONTEXT.md, backend/requirements.txt] |
+| flashtext-i18n | OntologyMatcher backend | planned | >=3.1.1,<4.0 | Stdlib deterministic matcher fallback if import fails. [VERIFIED: 17-CONTEXT.md, 17-01-PLAN.md] |
+| dateparser | Ordinary date fallback | planned | >=1.2.2,<1.3 | Financial-period regex parser remains primary and sufficient for quarter expressions. [VERIFIED: 17-CONTEXT.md, 17-01-PLAN.md] |
 
 **Missing dependencies with no fallback:**
 - None. [VERIFIED: local command]
@@ -442,8 +446,8 @@ COMPANY_ALIASES = {
 ## Recommended Plan Split
 
 1. **Schema contract task:** Add `RetrievalPlan` and nested models/types in `schemas.py`; add optional `plan` to `QueryRewriteEvent`. [VERIFIED: backend/app/models/schemas.py, backend/app/models/events.py]
-2. **Ontology/normalization task:** Create small shared ontology helpers for companies, metrics, quarters, and term matching; update table facts to import shared constants without changing behavior. [VERIFIED: backend/app/core/retrieval/table_facts.py:12-30]
-3. **Parser task:** Implement normalization, entity extraction, metric extraction, time parsing, task type, strategy/doc-type selection, filters, and signals in `query_analysis.py`. [VERIFIED: backend/app/core/agent/query_analysis.py]
+2. **Ontology/normalization/dependency task:** Add `flashtext-i18n` and `dateparser` requirements; create shared ontology helpers and an `OntologyMatcher` using FlashText with deterministic fallback; update table facts to import shared constants without changing behavior. [VERIFIED: backend/app/core/retrieval/table_facts.py:12-30, 17-01-PLAN.md]
+3. **Parser task:** Implement normalization, entity extraction, metric extraction, financial-period parsing, `dateparser` fallback, task type, strategy/doc-type selection, filters, and signals in `query_analysis.py`. [VERIFIED: backend/app/core/agent/query_analysis.py, 17-01-PLAN.md]
 4. **Compatibility wiring task:** Keep `/api/query`, `QueryWorkflow`, `retrieval_query()`, preview rewrite, and generation behavior unchanged except for optional plan serialization. [VERIFIED: backend/app/api/query.py, backend/app/core/agent/workflow.py, backend/app/api/preview_rewrite.py]
 5. **Validation task:** Add parser canonical-field tests, SSE plan exposure tests, preview rewrite regression, and table fact numeric QA regression. [VERIFIED: backend/tests/test_query_analysis.py, backend/tests/test_query_api.py, backend/tests/test_preview_rewrite.py]
 
@@ -471,7 +475,7 @@ COMPANY_ALIASES = {
 ## Metadata
 
 **Confidence breakdown:**
-- Standard stack: HIGH - no new dependency is needed and current installed versions were verified locally. [VERIFIED: backend/requirements.txt, local command]
+- Standard stack: HIGH - new local parser dependencies are bounded, pinned, and have deterministic in-process fallbacks where needed; existing installed versions for the rest of the stack were verified locally. [VERIFIED: backend/requirements.txt, local command]
 - Architecture: HIGH - integration points are small and directly verified in code. [VERIFIED: backend/app/core/agent/query_analysis.py, backend/app/api/query.py, backend/app/core/agent/workflow.py]
 - Pitfalls: HIGH - compatibility risks map directly to existing tests and code paths. [VERIFIED: backend/tests/test_query_api.py, backend/tests/test_query_analysis.py]
 - Exact final Pydantic field names: MEDIUM - CONTEXT.md permits planner discretion, and tests should lock the final names. [VERIFIED: 17-CONTEXT.md]
