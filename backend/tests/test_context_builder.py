@@ -1,4 +1,6 @@
 from app.core.agent.context_builder import build_evidence_pack
+from app.core.agent.prompts import build_generation_prompt
+from app.models.events import IntentDetectedEvent
 from app.models.schemas import RerankResultItem
 
 
@@ -105,3 +107,18 @@ def test_build_evidence_pack_handles_empty_evidence():
     assert pack.compressed_count == 0
     assert pack.dropped_duplicate_count == 0
     assert pack.items == []
+
+
+def test_generation_prompt_uses_compact_evidence_content():
+    long_content = "风险因素 " * 300
+    item = _item(chunk_id="risk-2", content=long_content, metadata={"source": "risk.pdf"})
+    pack = build_evidence_pack([item], text_limit=80)
+    prompt = build_generation_prompt(
+        "宁德时代风险",
+        IntentDetectedEvent(intent="analytical", template="analytical_markdown_with_citations"),
+        [item],
+        evidence_pack=pack,
+    )
+
+    assert pack.items[0].compact_content in prompt
+    assert long_content not in prompt
