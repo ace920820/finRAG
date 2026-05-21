@@ -27,6 +27,9 @@ class EvidencePack(BaseModel):
     original_count: int = 0
     compressed_count: int = 0
     dropped_duplicate_count: int = 0
+    original_char_count: int = 0
+    compact_char_count: int = 0
+    compression_ratio: float = 1.0
 
 
 def build_evidence_pack(items: Sequence[object], text_limit: int = 700) -> EvidencePack:
@@ -38,11 +41,17 @@ def build_evidence_pack(items: Sequence[object], text_limit: int = 700) -> Evide
             continue
         seen.add(key)
         packed.append(_pack_item(item, text_limit=text_limit))
+    original_char_count = sum(len(item.content) for item in packed)
+    compact_char_count = sum(len(item.compact_content) for item in packed)
+    compression_ratio = compact_char_count / original_char_count if original_char_count else 1.0
     return EvidencePack(
         items=packed,
         original_count=len(items),
         compressed_count=len(packed),
         dropped_duplicate_count=len(items) - len(packed),
+        original_char_count=original_char_count,
+        compact_char_count=compact_char_count,
+        compression_ratio=round(compression_ratio, 4),
     )
 
 

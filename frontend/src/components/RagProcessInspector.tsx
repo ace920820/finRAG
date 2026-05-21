@@ -13,6 +13,7 @@ export function RagProcessInspector({ snapshot }: RagProcessInspectorProps) {
   const routeStage = retrievalStages.find(stage => stage.name === 'query_plan');
   const filterStage = retrievalStages.find(stage => stage.name === 'metadata_filter');
   const hierarchyStage = retrievalStages.find(stage => stage.name === 'hierarchy_drill_down');
+  const evidenceStage = rerankStages.find(stage => stage.name === 'final_evidence');
   const hierarchyEvidence = hierarchyMetadata(snapshot.rerankDocs);
 
   return (
@@ -75,6 +76,14 @@ export function RagProcessInspector({ snapshot }: RagProcessInspectorProps) {
         )}
       </InspectorSection>
 
+      <InspectorSection title="Evidence Compression">
+        {evidenceStage ? (
+          <EvidenceCompression stage={evidenceStage} />
+        ) : (
+          <EmptyState text="暂无 evidence compression trace。" />
+        )}
+      </InspectorSection>
+
       <InspectorSection title="Iterative Steps">
         {snapshot.iterativeTrace?.enabled && snapshot.iterativeTrace.steps.length ? (
           <div className="space-y-2">
@@ -124,6 +133,46 @@ export function RagProcessInspector({ snapshot }: RagProcessInspectorProps) {
           <EmptyState text="当前证据没有 hierarchy metadata；如需全量展示，请先 reimport/reindex 已有语料。" />
         )}
       </InspectorSection>
+    </div>
+  );
+}
+
+function EvidenceCompression({ stage }: { stage: RetrievalCascadeStage }) {
+  const metadata = stage.metadata;
+  const originalChars = numberValue(metadata.original_char_count);
+  const compactChars = numberValue(metadata.compact_char_count);
+  const ratio = numberValue(metadata.compression_ratio);
+  const savedPercent = ratio === undefined ? undefined : Math.max(0, Math.round((1 - ratio) * 100));
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-1.5">
+        <MetricTile label="Raw chars" value={formatNumber(originalChars)} />
+        <MetricTile label="Compact chars" value={formatNumber(compactChars)} />
+        <MetricTile label="Saved" value={savedPercent === undefined ? 'none' : `${savedPercent}%`} />
+      </div>
+      <div className="rounded bg-white px-2 py-1 text-[10px] text-slate-600">
+        <div className="flex justify-between">
+          <span className="text-slate-500">Evidence</span>
+          <span className="text-slate-700">{stage.input_count} → {stage.output_count}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-slate-500">Duplicates dropped</span>
+          <span className="text-slate-700">{formatNumber(numberValue(metadata.dropped_duplicate_count))}</span>
+        </div>
+      </div>
+      <div className="text-[10px] leading-relaxed text-slate-500">
+        Final prompt evidence is deduped and compacted after rerank while preserving citation metadata.
+      </div>
+    </div>
+  );
+}
+
+function MetricTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded border border-slate-200 bg-white px-2 py-1.5">
+      <div className="break-words text-[9px] font-medium text-slate-400">{label}</div>
+      <div className="mt-0.5 break-words text-[12px] font-semibold text-slate-700">{value}</div>
     </div>
   );
 }
@@ -315,6 +364,14 @@ function formatMetadata(value: MetadataRecord | MetadataRecord[keyof MetadataRec
   if (Array.isArray(value)) return value.map(item => formatMetadata(item)).filter(Boolean).join(' / ');
   if (typeof value === 'object') return Object.entries(value).map(([key, item]) => `${key}: ${formatMetadata(item)}`).join(', ');
   return String(value);
+}
+
+function numberValue(value: MetadataRecord[keyof MetadataRecord] | undefined): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function formatNumber(value: number | undefined): string {
+  return value === undefined ? 'none' : value.toLocaleString();
 }
 
 function stringValue(value: MetadataRecord[keyof MetadataRecord] | undefined): string {

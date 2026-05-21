@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Advanced RAG Retrieval Architecture
 status: ready_for_demo_validation
-last_updated: "2026-05-21T11:33:58Z"
-last_activity: 2026-05-21 -- Phase 21.1 frontend showcase completed
+last_updated: "2026-05-21T16:27:55Z"
+last_activity: 2026-05-21 -- Evidence compression UI block completed
 progress:
   total_phases: 7
   completed_phases: 7
@@ -24,7 +24,7 @@ progress:
 Phase: v1.4 — IMPLEMENTED THROUGH PHASE 22
 Plan: 1 of 1
 Status: Ready for demo validation
-Last activity: 2026-05-21 -- Phase 21.1 frontend showcase completed
+Last activity: 2026-05-21 -- Evidence compression UI block completed
 
 ## Completed Milestones
 
@@ -56,6 +56,7 @@ Run live demo validation for the Phase 17-22 flow. If hierarchy metadata is miss
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-21 | 260522-0kt | Show evidence compression context engineering effects | Added backend evidence pack character statistics to `final_evidence` trace metadata and rendered a frontend Evidence Compression inspector block with raw chars, compact chars, saved percent, evidence count, and duplicate removal. |
 | 2026-05-21 | 260521-wvm | Upgrade interview guide with v1.4 backend and frontend showcase content | Rewrote `docs/FinRAG_面试讲解指南.md` as a comprehensive v1.4 interview guide covering Phase 17-22 backend architecture, Phase 21.1 frontend panels, demo flow, follow-up answers, and honest production boundaries. |
 | 2026-05-21 | phase-21.1-execute | Completed frontend RAG process showcase | Added typed v1.4 process payload capture, right-sidebar process inspector, iterative retrieval display, and real Phase 22 hierarchy/drill-down display when present; frontend lint/build passed. |
 | 2026-05-21 | phase-22-execute | Completed hierarchical chunking and drill-down retrieval | Added deterministic section/table parent-child metadata, bounded `hierarchy_drill_down` retrieval trace, and verified 116 backend tests. |

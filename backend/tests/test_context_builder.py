@@ -98,6 +98,9 @@ def test_build_evidence_pack_compacts_long_text_and_preserves_source_metadata():
     assert packed.section == "风险因素"
     assert len(packed.compact_content) <= 120
     assert packed.compact_content.endswith("...")
+    assert pack.original_char_count == len(long_content)
+    assert pack.compact_char_count == len(packed.compact_content)
+    assert pack.compression_ratio < 1
 
 
 def test_build_evidence_pack_handles_empty_evidence():
@@ -106,6 +109,9 @@ def test_build_evidence_pack_handles_empty_evidence():
     assert pack.original_count == 0
     assert pack.compressed_count == 0
     assert pack.dropped_duplicate_count == 0
+    assert pack.original_char_count == 0
+    assert pack.compact_char_count == 0
+    assert pack.compression_ratio == 1.0
     assert pack.items == []
 
 

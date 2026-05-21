@@ -21,6 +21,9 @@ def rerank_trace(
             "original_count": evidence_pack.original_count,
             "compressed_count": evidence_pack.compressed_count,
             "dropped_duplicate_count": evidence_pack.dropped_duplicate_count,
+            "original_char_count": evidence_pack.original_char_count,
+            "compact_char_count": evidence_pack.compact_char_count,
+            "compression_ratio": evidence_pack.compression_ratio,
         }
     return [
         RetrievalCascadeStage(
