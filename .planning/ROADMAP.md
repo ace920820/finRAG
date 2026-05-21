@@ -159,6 +159,9 @@ Plans:
 ### Phase 22: Hierarchical Chunking And Drill-down Retrieval
 
 **Purpose:** Add multi-scale retrieval after the safer architecture layers are in place.
+**Requirements**: HIER-01, HIER-02, HIER-03, HIER-04
+**Depends on:** Phase 21
+**Plans:** 1 plan
 
 **Likely files:**
 - `backend/app/core/ingestion/chunker.py`
@@ -175,6 +178,9 @@ Plans:
 - Retrieval can optionally recall section/table-summary evidence first, then drill down to paragraph/table-row children.
 - Corpus import and index rebuild remain deterministic.
 - Existing chunk consumers and KB/document APIs remain backward compatible.
+
+Plans:
+- [ ] 22-01-PLAN.md — Add deterministic hierarchy metadata, table parent-child linkage, and bounded drill-down retrieval.
 
 ## Requirement Coverage
 
@@ -212,4 +218,4 @@ Plans:
 
 ## Next Action
 
-Plan Phase 21.1 — Frontend RAG Process Showcase For v1.4 Demo.
+Execute Phase 22 — Hierarchical Chunking And Drill-down Retrieval, then return to Phase 21.1 frontend showcase planning.
