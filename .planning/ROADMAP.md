@@ -180,7 +180,7 @@ Plans:
 - Existing chunk consumers and KB/document APIs remain backward compatible.
 
 Plans:
-- [ ] 22-01-PLAN.md — Add deterministic hierarchy metadata, table parent-child linkage, and bounded drill-down retrieval.
+- [x] 22-01-PLAN.md — Add deterministic hierarchy metadata, table parent-child linkage, and bounded drill-down retrieval.
 
 ## Requirement Coverage
 
@@ -209,13 +209,13 @@ Plans:
 | SHOWCASE-02 | Phase 21.1 | Pending |
 | SHOWCASE-03 | Phase 21.1 | Pending |
 | SHOWCASE-04 | Phase 21.1 | Pending |
-| HIER-01 | Phase 22 | Pending |
-| HIER-02 | Phase 22 | Pending |
-| HIER-03 | Phase 22 | Pending |
-| HIER-04 | Phase 22 | Pending |
+| HIER-01 | Phase 22 | Complete |
+| HIER-02 | Phase 22 | Complete |
+| HIER-03 | Phase 22 | Complete |
+| HIER-04 | Phase 22 | Complete |
 
 **Coverage:** 27 requirements mapped to 7 phases; unmapped requirements: 0.
 
 ## Next Action
 
-Execute Phase 22 — Hierarchical Chunking And Drill-down Retrieval, then return to Phase 21.1 frontend showcase planning.
+Return to Phase 21.1 frontend showcase planning, then use Phase 22 hierarchy metadata and drill-down trace in the demo UI.

@@ -2,29 +2,29 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Advanced RAG Retrieval Architecture
-status: executing
-last_updated: "2026-05-21T10:23:58.625Z"
-last_activity: 2026-05-21 -- Phase 22 execution started
+status: planning
+last_updated: "2026-05-21T10:05:00Z"
+last_activity: 2026-05-21 -- Completed Phase 22 hierarchical chunking and drill-down retrieval
 progress:
   total_phases: 7
-  completed_phases: 4
-  total_plans: 6
-  completed_plans: 4
-  percent: 67
+  completed_phases: 5
+  total_plans: 7
+  completed_plans: 5
+  percent: 71
 ---
 
 # State: FinRAG
 
 **Initialized:** 2026-05-13
 **Current milestone:** v1.4 Advanced RAG Retrieval Architecture
-**Status:** Executing Phase 22
+**Status:** Phase 22 complete; return to Phase 21.1 frontend showcase
 
 ## Current Position
 
-Phase: 22 (Hierarchical Chunking And Drill-down Retrieval) — EXECUTING
-Plan: 1 of 1
-Status: Executing Phase 22
-Last activity: 2026-05-21 -- Phase 22 execution started
+Phase: 21.1 (Frontend RAG Process Showcase For v1.4 Demo) — READY TO PLAN
+Plan: 0 of 0
+Status: Phase 22 complete; frontend showcase can now consume hierarchy metadata and drill-down traces
+Last activity: 2026-05-21 -- Completed Phase 22 hierarchical chunking and drill-down retrieval
 
 ## Completed Milestones
 
@@ -50,12 +50,13 @@ Last activity: 2026-05-21 -- Phase 22 execution started
 
 ## Next Action
 
-Execute Phase 22 — Hierarchical Chunking And Drill-down Retrieval.
+Plan/execute Phase 21.1 — Frontend RAG Process Showcase For v1.4 Demo.
 
 ## Quick Tasks Completed
 
 | Date | ID | Task | Result |
 | --- | --- | --- | --- |
+| 2026-05-21 | phase-22-execute | Completed hierarchical chunking and drill-down retrieval | Added deterministic section/table parent-child metadata, bounded `hierarchy_drill_down` retrieval trace, and verified 116 backend tests. |
 | 2026-05-21 | phase-22-plan | Planned hierarchical chunking and drill-down retrieval | Added research, validation, and a verified execution plan for retrievable section/table parent chunks, bounded child drill-down, and deterministic import/reindex compatibility. |
 | 2026-05-21 | phase-21.1-insert | Inserted frontend RAG process showcase phase before Phase 22 | Added a demo-focused phase for exposing v1.4 RAG intermediate artifacts in the frontend before hierarchy/drill-down work. |
 | 2026-05-21 | phase-21-iterative-retrieval | Completed Phase 21 iterative retrieval demo mode | Added deterministic multi-step retrieval for analytical/reasoning queries, additive iterative traces, single-pass fallback for factual/table QA, and verified 111 backend tests. |
